@@ -46,7 +46,12 @@ def base_url():
 @pytest.fixture(scope="session")
 def browser():
     with sync_playwright() as p:
-        b = p.chromium.launch(channel="msedge", headless=True)
+        # E2E_HEADED=1 : fenêtre visible ; E2E_SLOWMO=500 : ralentit chaque action (en ms).
+        b = p.chromium.launch(
+            channel="msedge",
+            headless=os.environ.get("E2E_HEADED") != "1",
+            slow_mo=int(os.environ.get("E2E_SLOWMO", "0")),
+        )
         yield b
         b.close()
 

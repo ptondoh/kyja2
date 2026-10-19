@@ -1,5 +1,48 @@
 {% extends "base.html" %}
-{% block content %}
-<h1>Bienvenue chez KYJA BEAUTÉ</h1>
-<p>Coiffure et produits de beauté.</p>
+{% from "catalog/_macros.html" import service_tile, product_tile %}
+{% block content_wrap %}
+<section class="relative isolate overflow-hidden bg-ink text-ivory">
+  <div class="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(220,181,60,0.18),transparent_60%)]"></div>
+  <div class="container-page flex flex-col items-center gap-8 py-14 text-center sm:py-20">
+    <img src="/static/img/logo-512.webp" alt="KYJA BEAUTÉ" width="512" height="632" class="h-auto w-56 drop-shadow-[0_0_40px_rgba(220,181,60,0.25)] sm:w-72">
+    <h1 class="max-w-2xl text-balance font-display text-3xl font-medium text-ivory sm:text-5xl">L'élégance au bout des doigts</h1>
+    <p class="max-w-xl text-lg text-ivory/70">Coiffure sur mesure et produits de beauté sélectionnés avec soin.</p>
+    <div class="flex flex-wrap justify-center gap-3">
+      <a href="/services" class="btn-gold">Découvrir nos prestations</a>
+      <a href="/products" class="btn-outline-light">Nos produits</a>
+    </div>
+  </div>
+</section>
+
+<div class="container-page py-14">
+  {% if services %}
+  <section aria-labelledby="h-services">
+    <div class="mb-8 flex items-end justify-between gap-4">
+      <div><p class="eyebrow">Prestations</p><h2 id="h-services" class="text-3xl">Nos coiffures &amp; soins</h2></div>
+      <a href="/services" class="link-gold text-sm">Tout voir →</a>
+    </div>
+    <div class="tiles">{% for s, media in services %}{{ service_tile(s, media) }}{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% if products %}
+  <section aria-labelledby="h-products" class="mt-16">
+    <div class="mb-8 flex items-end justify-between gap-4">
+      <div><p class="eyebrow">Boutique</p><h2 id="h-products" class="text-3xl">Produits de beauté</h2></div>
+      <a href="/products" class="link-gold text-sm">Tout voir →</a>
+    </div>
+    <div class="tiles">{% for p, media in products %}{{ product_tile(p, media) }}{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% if not services and not products %}
+  <p class="text-center text-muted">Le catalogue arrive bientôt.</p>
+  {% endif %}
+
+  <section class="mt-16 rounded-2xl border border-line bg-cream px-6 py-10 text-center">
+    <div class="gold-rule mb-6"></div>
+    <h2 class="text-2xl">Paiement simple, au salon</h2>
+    <p class="mx-auto mt-2 max-w-xl text-muted">Réglez vos prestations et vos achats directement au salon, en argent comptant ou par Interac.</p>
+  </section>
+</div>
 {% endblock %}

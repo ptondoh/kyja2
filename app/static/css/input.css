@@ -1,0 +1,124 @@
+@import "tailwindcss";
+@import "./fonts.css";
+
+@source "../../templates";
+
+/* Palette tirée du logo : or (reflets F0E070 -> ombres C09020) sur noir chaud et ivoire. */
+@theme {
+  --font-display: "Cormorant Garamond", "Palatino Linotype", Georgia, serif;
+  --font-sans: "Jost", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-ink: #141210;
+  --color-ink-soft: #1f1b17;
+  --color-ink-line: #3a332b;
+
+  --color-gold-200: #f3e7a6;
+  --color-gold-300: #e9d070;
+  --color-gold-400: #dcb53c;
+  --color-gold-500: #c09020;
+  --color-gold-600: #9a7015;
+  --color-gold-700: #75540f;
+
+  --color-ivory: #faf6f0;
+  --color-cream: #f2eadc;
+  --color-line: #e5d9c3;
+  --color-muted: #6f655a;
+
+  --color-danger: #9b1c1c;
+  --color-danger-bg: #fbeaea;
+  --color-ok: #14663f;
+  --color-ok-bg: #e5f4ec;
+}
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body {
+    @apply bg-ivory font-sans font-light text-ink antialiased;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+  main { flex: 1 0 auto; }
+  h1, h2, h3 { @apply font-display font-semibold tracking-tight; }
+  .font-display, .price, h1, h2, h3 { font-variant-numeric: lining-nums; }
+  h1 { @apply text-4xl sm:text-5xl; }
+  h2 { @apply text-2xl; }
+  a { @apply transition-colors; }
+  :focus-visible { @apply outline-2 outline-offset-2 outline-gold-500; }
+}
+
+@layer components {
+  .container-page { @apply mx-auto w-full max-w-6xl px-4 sm:px-6; }
+  .eyebrow { @apply text-xs font-medium uppercase tracking-[0.3em] text-gold-600; }
+  .gold-rule { @apply mx-auto h-px w-24 bg-gradient-to-r from-transparent via-gold-400 to-transparent; }
+  .link-gold { @apply text-gold-700 underline decoration-gold-300 underline-offset-4 hover:text-gold-500; }
+
+  /* Boutons */
+  .btn, .btn-gold, .btn-outline, .btn-outline-light, .btn-danger {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-medium
+      tracking-wide transition-all duration-200;
+  }
+  .btn-gold {
+    @apply bg-gradient-to-b from-gold-300 to-gold-500 text-ink shadow-sm hover:from-gold-200 hover:to-gold-400 hover:shadow-md;
+  }
+  .btn-outline { @apply border border-gold-400 text-gold-700 hover:bg-gold-400/10; }
+  .btn-outline-light { @apply border border-gold-300/60 text-gold-200 hover:bg-gold-300/10; }
+  .btn-danger { @apply border border-danger/40 text-danger hover:bg-danger-bg; }
+  .btn-sm, .btn-danger { @apply px-4 py-2 text-xs; }
+
+  /* Formulaires */
+  form.card { @apply flex flex-col gap-5; }
+  label { @apply flex flex-col gap-1.5 text-sm font-normal text-ink-soft; }
+  label.check { @apply flex-row items-start gap-3 leading-snug; }
+  input[type="text"], input[type="email"], input[type="password"], input[type="tel"],
+  input[type="number"], input[type="file"], textarea, select {
+    @apply w-full rounded-lg border border-line bg-white px-4 py-2.5 text-base text-ink shadow-xs
+      transition focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-300/50;
+  }
+  input[type="file"] { @apply p-2 text-sm; }
+  input[type="checkbox"] { @apply mt-0.5 size-4 shrink-0 accent-gold-500; }
+  form.inline { @apply inline; }
+
+  /* Messages */
+  .error { @apply rounded-lg border border-danger/20 bg-danger-bg px-4 py-3 text-sm text-danger; }
+  .ok { @apply rounded-lg border border-ok/20 bg-ok-bg px-4 py-3 text-sm text-ok; }
+  .muted { @apply text-sm text-muted; }
+
+  /* Panneaux */
+  .panel { @apply rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8; }
+
+  /* Catalogue */
+  .tiles { @apply grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-4; }
+  .tile {
+    @apply flex flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-xs
+      transition duration-300 hover:-translate-y-1 hover:border-gold-300 hover:shadow-lg;
+  }
+  .tile .cover { @apply relative aspect-[4/5] overflow-hidden bg-cream; }
+  .tile .cover img { @apply size-full object-cover transition duration-500 group-hover:scale-105; }
+  .tile .info { @apply flex flex-1 flex-col gap-1 p-4; }
+  .tile h2 { @apply text-xl leading-snug; }
+  .placeholder { @apply grid size-full place-items-center bg-gradient-to-br from-cream to-line; }
+  .placeholder img { @apply size-16 object-contain opacity-60; }
+  .price { @apply font-display text-xl font-semibold text-gold-700; }
+  .badge {
+    @apply absolute right-3 top-3 rounded-full bg-ink/80 px-2.5 py-1 text-[0.7rem] font-medium uppercase
+      tracking-wider text-gold-200 backdrop-blur;
+  }
+  .chips { @apply mb-8 flex flex-wrap gap-2; }
+  .chips a {
+    @apply rounded-full border border-line bg-white px-4 py-1.5 text-sm text-muted hover:border-gold-400 hover:text-gold-700;
+  }
+  .chips a.on { @apply border-gold-500 bg-gold-500 text-ink; }
+  .gallery { @apply my-6 grid gap-4 sm:grid-cols-2; }
+  .gallery img, .gallery video { @apply h-auto w-full rounded-2xl bg-cream object-cover shadow-sm; }
+  .desc { @apply max-w-prose text-lg leading-relaxed text-ink-soft; }
+
+  /* Administration */
+  .admin-table { @apply w-full text-left text-sm; }
+  .admin-table th { @apply border-b border-line px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted; }
+  .admin-table td { @apply border-b border-line/70 px-3 py-3; }
+  .media-list { @apply my-4 flex list-none flex-wrap gap-4 p-0; }
+  .media-list li { @apply relative flex flex-col items-start gap-2 rounded-xl border border-line bg-white p-3; }
+  .media-list img { @apply h-24 w-auto rounded-lg object-cover; }
+  .media-list .badge { @apply static; }
+}

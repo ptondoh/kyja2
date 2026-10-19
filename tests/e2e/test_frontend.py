@@ -47,7 +47,8 @@ def test_public_pages_render(page, shot):
     bad = []
     page.on("response", lambda r: bad.append((r.status, r.url)) if r.status >= 400 else None)
     page.goto("/")
-    expect(page.locator("h1")).to_contain_text("KYJA")
+    expect(page.get_by_role("img", name="KYJA BEAUTÉ")).to_be_visible()
+    shot("00-accueil-vide")
     page.click("text=Prestations")
     expect(page).to_have_url(re.compile(r"/services$"))
     expect(page.locator("h1")).to_have_text("Nos prestations")
@@ -165,6 +166,18 @@ def test_admin_full_catalog_flow(page, shot, admin_user, media_files):
     )
     assert played
     assert page.console_errors == [], page.console_errors
+
+    # accueil avec catalogue, puis rendu mobile
+    page.goto("/")
+    expect(page.locator(".tile", has_text="TEST Coloration")).to_be_visible()
+    shot("08-accueil-catalogue")
+    page.set_viewport_size({"width": 400, "height": 800})
+    page.goto("/")
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    shot("09-mobile-accueil")
+    page.click("label[for=menu-toggle]")
+    expect(page.locator("nav[aria-label='Navigation principale']")).to_be_visible()
+    shot("10-mobile-menu", full_page=False)
 
 
 def test_admin_settings_page(page, admin_user):

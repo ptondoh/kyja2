@@ -1,27 +1,27 @@
 {# variables: item, media, kind ("services" | "products") #}
 <section class="media-admin">
   <h2>Photos et vidéos</h2>
-  {% if request.query_params.get('upload_error') %}<p class="error" role="alert">{{ request.query_params.get('upload_error') }}</p>{% endif %}
-  {% if request.query_params.get('uploaded') %}<p class="ok">Fichier reçu. Le traitement peut prendre un moment pour les vidéos.</p>{% endif %}
+  {% if request.query_params.get('upload_error') %}<p class="error mt-4" role="alert">{{ request.query_params.get('upload_error') }}</p>{% endif %}
+  {% if request.query_params.get('uploaded') %}<p class="ok mt-4">Fichier reçu. Le traitement peut prendre un moment pour les vidéos.</p>{% endif %}
   <ul class="media-list">
     {% for m in media %}
     <li>
       {% if m.status.value == 'ready' %}
-        {% if m.type.value == 'video' %}<img src="{{ m.poster_url }}" alt="" width="120"><span class="badge">Vidéo {{ m.duration_s }} s</span>
-        {% else %}<img src="{{ m.url }}" alt="" width="120">{% endif %}
+        {% if m.type.value == 'video' %}<img src="{{ m.poster_url }}" alt=""><span class="badge">Vidéo {{ m.duration_s }} s</span>
+        {% else %}<img src="{{ m.url }}" alt="">{% endif %}
       {% elif m.status.value == 'processing' %}<span class="muted">En traitement…</span>
       {% else %}<span class="error">Échec du traitement{% if m.error %} ({{ m.error }}){% endif %}</span>{% endif %}
       <form method="post" action="/admin/media/{{ m.id }}/delete" class="inline">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit">Supprimer</button>
+        <button type="submit" class="btn-danger">Supprimer</button>
       </form>
     </li>
-    {% else %}<li class="muted">Aucun média.</li>{% endfor %}
+    {% else %}<li class="muted border-dashed">Aucun média.</li>{% endfor %}
   </ul>
   <form method="post" action="/admin/{{ kind }}/{{ item.id }}/media" enctype="multipart/form-data" class="card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>Ajouter une image (JPEG, PNG, WebP) ou une vidéo (MP4, MOV, WebM)
       <input type="file" name="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" required></label>
-    <button type="submit">Téléverser</button>
+    <button type="submit" class="btn-outline">Téléverser</button>
   </form>
 </section>

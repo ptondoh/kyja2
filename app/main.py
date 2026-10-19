@@ -3,8 +3,8 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import text
-from sqlalchemy.orm import Session
+from sqlalchemy import select, text
+from sqlalchemy.orm import Session, selectinload
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.admin.router import router as admin_router
@@ -12,8 +12,9 @@ from app.auth.deps import get_current_user_optional
 from app.auth.router import router as auth_router
 from app.config import get_settings
 from app.db.base import get_db
-from app.db.models.core import User
+from app.db.models.core import Product, Service, User
 from app.products.router import router as products_router
+from app.services.router import ready_media
 from app.services.router import router as services_router
 from app.security_middleware import SecurityMiddleware
 from app.templating import render
@@ -41,8 +42,32 @@ app.include_router(admin_router)
 
 
 @app.get("/")
-def index(request: Request, user: User | None = Depends(get_current_user_optional)):
-    return render(request, "index.html", current_user=user)
+def index(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user_optional),
+):
+    services = db.scalars(
+        select(Service)
+        .options(selectinload(Service.media))
+        .where(Service.is_active.is_(True))
+        .order_by(Service.id.desc())
+        .limit(4)
+    ).all()
+    products = db.scalars(
+        select(Product)
+        .options(selectinload(Product.media))
+        .where(Product.is_active.is_(True))
+        .order_by(Product.id.desc())
+        .limit(4)
+    ).all()
+    return render(
+        request,
+        "index.html",
+        current_user=user,
+        services=[(s, ready_media(s.media)) for s in services],
+        products=[(p, ready_media(p.media)) for p in products],
+    )
 
 
 @app.get("/health")

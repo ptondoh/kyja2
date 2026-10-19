@@ -1,15 +1,14 @@
 {% extends "base.html" %}
-{% from "catalog/_macros.html" import cover, price %}
+{% from "catalog/_macros.html" import product_tile %}
 {% block title %}Nos produits — KYJA BEAUTÉ{% endblock %}
 {% block content %}
-<h1>Nos produits</h1>
+<header class="mb-10 text-center">
+  <p class="eyebrow">Boutique</p>
+  <h1>Nos produits</h1>
+  <div class="gold-rule mt-4"></div>
+</header>
 <div class="tiles">
-  {% for p, media in products %}
-  <a class="tile" href="/products/{{ p.id }}">
-    <div class="cover">{{ cover(media) }}</div>
-    <div class="info"><h2>{{ p.name }}</h2><p class="price">{{ price(p.price) }}</p>
-      {% if p.stock <= 0 %}<p class="muted">Rupture de stock</p>{% endif %}</div>
-  </a>
-  {% else %}<p>Aucun produit pour le moment.</p>{% endfor %}
+  {% for p, media in products %}{{ product_tile(p, media) }}
+  {% else %}<p class="col-span-full text-center text-muted">Aucun produit pour le moment.</p>{% endfor %}
 </div>
 {% endblock %}

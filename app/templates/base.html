@@ -4,30 +4,60 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="theme-color" content="#141210">
   <title>{% block title %}KYJA BEAUTÉ{% endblock %}</title>
-  <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/img/favicon.png" type="image/png">
+  <link rel="preload" href="/static/fonts/CormorantGaramond-600.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/css/style.css">
   {% block head %}{% endblock %}
 </head>
 <body>
-  <header class="site-header">
-    <a class="brand" href="/">KYJA BEAUTÉ</a>
-    <nav>
-      <a href="/services">Prestations</a>
-      <a href="/products">Produits</a>
-      {% if current_user and current_user.role.value == 'admin' %}<a href="/admin">Admin</a>{% endif %}
-      {% if current_user %}
-        <span>{{ current_user.full_name }}</span>
-        <form method="post" action="/auth/logout" class="inline">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <button type="submit">Déconnexion</button>
-        </form>
-      {% else %}
-        <a href="/auth/login">Connexion</a>
-        <a href="/auth/register">Créer un compte</a>
-      {% endif %}
-    </nav>
+  <header class="sticky top-0 z-40 border-b border-ink-line bg-ink/95 text-ivory backdrop-blur">
+    <div class="container-page flex h-16 items-center justify-between gap-4">
+      <a href="/" class="flex items-center gap-3" aria-label="KYJA BEAUTÉ, accueil">
+        <img src="/static/img/logo-mark.png" alt="" width="40" height="32" class="h-9 w-auto">
+        <span class="font-display text-xl font-semibold uppercase tracking-[0.25em] text-gold-300">Kyja <span class="hidden sm:inline">Beauté</span></span>
+      </a>
+
+      {# Menu mobile sans JavaScript : case à cocher + label #}
+      <input type="checkbox" id="menu-toggle" class="peer sr-only">
+      <label for="menu-toggle" class="order-last flex size-10 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-full border border-ink-line md:hidden" aria-label="Ouvrir le menu">
+        <span class="h-px w-5 bg-gold-300"></span><span class="h-px w-5 bg-gold-300"></span><span class="h-px w-5 bg-gold-300"></span>
+      </label>
+
+      <nav class="absolute inset-x-0 top-16 hidden flex-col gap-1 border-b border-ink-line bg-ink px-4 py-4 text-sm tracking-wide peer-checked:flex md:static md:flex md:flex-row md:items-center md:gap-7 md:border-0 md:bg-transparent md:p-0" aria-label="Navigation principale">
+        <a href="/services" class="py-2 text-ivory/85 hover:text-gold-300">Prestations</a>
+        <a href="/products" class="py-2 text-ivory/85 hover:text-gold-300">Produits</a>
+        {% if current_user and current_user.role.value == 'admin' %}<a href="/admin" class="py-2 text-gold-300 hover:text-gold-200">Admin</a>{% endif %}
+        {% if current_user %}
+          <span class="py-2 text-ivory/60 md:border-l md:border-ink-line md:pl-7">{{ current_user.full_name }}</span>
+          <form method="post" action="/auth/logout" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn-outline-light btn-sm">Déconnexion</button>
+          </form>
+        {% else %}
+          <a href="/auth/login" class="py-2 text-ivory/85 hover:text-gold-300">Connexion</a>
+          <a href="/auth/register" class="btn-gold btn-sm">Créer un compte</a>
+        {% endif %}
+      </nav>
+    </div>
   </header>
-  <main>{% block content %}{% endblock %}</main>
+
+  <main>{% block content_wrap %}<div class="container-page py-10 sm:py-14">{% block content %}{% endblock %}</div>{% endblock %}</main>
+
+  <footer class="mt-16 border-t border-ink-line bg-ink text-ivory/70">
+    <div class="container-page flex flex-col items-center gap-6 py-10 text-center sm:flex-row sm:justify-between sm:text-left">
+      <a href="/" class="flex items-center gap-3">
+        <img src="/static/img/logo-mark.png" alt="" width="40" height="32" class="h-10 w-auto" loading="lazy">
+        <span class="font-display text-lg uppercase tracking-[0.25em] text-gold-300">Kyja Beauté</span>
+      </a>
+      <p class="text-sm">Coiffure &amp; produits de beauté · Paiement au salon (Cash / Interac)</p>
+      <nav class="flex gap-6 text-sm" aria-label="Pied de page">
+        <a href="/services" class="hover:text-gold-300">Prestations</a>
+        <a href="/products" class="hover:text-gold-300">Produits</a>
+      </nav>
+    </div>
+    <div class="border-t border-ink-line py-4 text-center text-xs text-ivory/40">© KYJA BEAUTÉ</div>
+  </footer>
 </body>
 </html>

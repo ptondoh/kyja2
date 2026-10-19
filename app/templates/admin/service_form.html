@@ -2,21 +2,27 @@
 {% block title %}{{ 'Modifier' if item else 'Nouvelle' }} prestation — Admin{% endblock %}
 {% block head %}{% if media | selectattr('status.value', 'equalto', 'processing') | list %}<meta http-equiv="refresh" content="3">{% endif %}{% endblock %}
 {% block content %}
-<p><a href="/admin/services">← Prestations</a></p>
-<h1>{{ item.name if item else 'Nouvelle prestation' }}</h1>
-{% if request.query_params.get('saved') %}<p class="ok">Enregistré.</p>{% endif %}
-{% if errors %}<div class="error" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
-{% set f = form if form else (item if item else none) %}
-<form method="post" action="{{ '/admin/services/' ~ item.id if item else '/admin/services' }}" class="card">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  <label>Nom <input type="text" name="name" required maxlength="200" value="{{ f.name if f else '' }}"></label>
-  <label>Catégorie (ex: coiffure, soin) <input type="text" name="category" maxlength="100" value="{{ (f.category or '') if f else '' }}"></label>
-  <label>Description <textarea name="description" rows="4">{{ (f.description or '') if f else '' }}</textarea></label>
-  <label>Durée de base (min) <input type="number" name="base_duration_min" required min="5" max="600" value="{{ f.base_duration_min if f else '' }}"></label>
-  <label>Temps de repos (min) <input type="number" name="buffer_min" min="0" max="180" value="{{ f.buffer_min if f else 0 }}"></label>
-  <label>Prix ($ CAD) <input type="text" name="price" required inputmode="decimal" value="{{ f.price if f else '' }}"></label>
-  <label class="check"><input type="checkbox" name="is_active" value="true" {% if not f or f.is_active %}checked{% endif %}> Visible dans le catalogue</label>
-  <button type="submit">Enregistrer</button>
-</form>
-{% if item %}{% set kind = 'services' %}{% include "admin/_media.html" %}{% endif %}
+<a href="/admin/services" class="link-gold text-sm">← Prestations</a>
+<h1 class="mb-6 mt-4">{{ item.name if item else 'Nouvelle prestation' }}</h1>
+<div class="mx-auto grid max-w-5xl gap-8 lg:grid-cols-2">
+  <div class="panel">
+    {% if request.query_params.get('saved') %}<p class="ok mb-5">Enregistré.</p>{% endif %}
+    {% if errors %}<div class="error mb-5" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+    {% set f = form if form else (item if item else none) %}
+    <form method="post" action="{{ '/admin/services/' ~ item.id if item else '/admin/services' }}" class="card">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Nom <input type="text" name="name" required maxlength="200" value="{{ f.name if f else '' }}"></label>
+      <label>Catégorie <span class="muted">ex : coiffure, soin</span><input type="text" name="category" maxlength="100" value="{{ (f.category or '') if f else '' }}"></label>
+      <label>Description <textarea name="description" rows="4">{{ (f.description or '') if f else '' }}</textarea></label>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <label>Durée de base (min) <input type="number" name="base_duration_min" required min="5" max="600" value="{{ f.base_duration_min if f else '' }}"></label>
+        <label>Temps de repos (min) <input type="number" name="buffer_min" min="0" max="180" value="{{ f.buffer_min if f else 0 }}"></label>
+      </div>
+      <label>Prix ($ CAD) <input type="text" name="price" required inputmode="decimal" value="{{ f.price if f else '' }}"></label>
+      <label class="check"><input type="checkbox" name="is_active" value="true" {% if not f or f.is_active %}checked{% endif %}> <span>Visible dans le catalogue</span></label>
+      <button type="submit" class="btn-gold">Enregistrer</button>
+    </form>
+  </div>
+  {% if item %}<div class="panel">{% set kind = 'services' %}{% include "admin/_media.html" %}</div>{% endif %}
+</div>
 {% endblock %}

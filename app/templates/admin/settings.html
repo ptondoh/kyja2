@@ -1,14 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Réglages — Admin{% endblock %}
 {% block content %}
-<p><a href="/admin">← Administration</a></p>
-<h1>Réglages</h1>
-{% if request.query_params.get('saved') %}<p class="ok">Enregistré.</p>{% endif %}
-{% if errors %}<div class="error" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
-<form method="post" action="/admin/settings" class="card">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  <label>Taille maximale d'une vidéo (Mo) <input type="number" name="video_max_mb" min="1" max="2000" required value="{{ video_max_mb }}"></label>
-  <label>Durée maximale d'une vidéo (secondes) <input type="number" name="video_max_seconds" min="10" max="3600" required value="{{ video_max_seconds }}"></label>
-  <button type="submit">Enregistrer</button>
-</form>
+<a href="/admin" class="link-gold text-sm">← Administration</a>
+<h1 class="mb-6 mt-4">Réglages</h1>
+<div class="panel max-w-xl">
+  <h2 class="mb-4">Vidéos téléversées</h2>
+  {% if request.query_params.get('saved') %}<p class="ok mb-5">Enregistré.</p>{% endif %}
+  {% if errors %}<div class="error mb-5" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+  <form method="post" action="/admin/settings" class="card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Taille maximale d'une vidéo (Mo) <input type="number" name="video_max_mb" min="1" max="2000" required value="{{ video_max_mb }}"></label>
+    <label>Durée maximale d'une vidéo (secondes) <input type="number" name="video_max_seconds" min="10" max="3600" required value="{{ video_max_seconds }}"></label>
+    <button type="submit" class="btn-gold">Enregistrer</button>
+  </form>
+</div>
 {% endblock %}

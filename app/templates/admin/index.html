@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Administration — KYJA BEAUTÉ{% endblock %}
 {% block content %}
-<h1>Administration</h1>
-<ul class="admin-links">
-  <li><a href="/admin/services">Prestations</a></li>
-  <li><a href="/admin/products">Produits</a></li>
-  <li><a href="/admin/settings">Réglages (limites vidéo)</a></li>
+<header class="mb-10"><p class="eyebrow">Espace admin</p><h1>Administration</h1></header>
+<ul class="admin-links grid list-none gap-4 p-0 sm:grid-cols-3">
+  <li><a href="/admin/services" class="panel block hover:border-gold-400"><h2>Prestations</h2><p class="muted mt-1">Coiffures, soins, tarifs et médias</p></a></li>
+  <li><a href="/admin/products" class="panel block hover:border-gold-400"><h2>Produits</h2><p class="muted mt-1">Catalogue, prix et stock</p></a></li>
+  <li><a href="/admin/settings" class="panel block hover:border-gold-400"><h2>Réglages</h2><p class="muted mt-1">Limites des vidéos téléversées</p></a></li>
 </ul>
 {% endblock %}

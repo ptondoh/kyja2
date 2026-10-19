@@ -3,7 +3,7 @@
   {%- set vid = media | selectattr('type.value', 'equalto', 'video') | first -%}
   {%- if img %}<img src="{{ img.url }}" alt="" loading="lazy">
   {%- elif vid %}<img src="{{ vid.poster_url }}" alt="" loading="lazy"><span class="badge">Vidéo</span>
-  {%- else %}<div class="placeholder"></div>{% endif -%}
+  {%- else %}<div class="placeholder"><img src="/static/img/logo-mark.png" alt="" loading="lazy"></div>{% endif -%}
 {%- endmacro %}
 
 {% macro gallery(media, alt) -%}
@@ -21,3 +21,26 @@
 {%- endmacro %}
 
 {% macro price(value) -%}{{ "%.2f"|format(value) }} $ CAD{%- endmacro %}
+
+{% macro service_tile(s, media) -%}
+<a class="tile group" href="/services/{{ s.id }}">
+  <div class="cover">{{ cover(media) }}</div>
+  <div class="info">
+    {% if s.category %}<p class="eyebrow">{{ s.category }}</p>{% endif %}
+    <h2>{{ s.name }}</h2>
+    <p class="price">{{ price(s.price) }}</p>
+    <p class="muted">{{ s.base_duration_min }} min</p>
+  </div>
+</a>
+{%- endmacro %}
+
+{% macro product_tile(p, media) -%}
+<a class="tile group" href="/products/{{ p.id }}">
+  <div class="cover">{{ cover(media) }}</div>
+  <div class="info">
+    <h2>{{ p.name }}</h2>
+    <p class="price">{{ price(p.price) }}</p>
+    {% if p.stock <= 0 %}<p class="muted">Rupture de stock</p>{% endif %}
+  </div>
+</a>
+{%- endmacro %}
