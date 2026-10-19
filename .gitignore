@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+/tmp_uploads/
+/bin/tailwindcss*
+node_modules/
+.DS_Store

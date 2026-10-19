@@ -1,0 +1,14 @@
+/* Provisoire : sera remplacé par la sortie de Tailwind CLI. */
+body{margin:0;font-family:system-ui,sans-serif;background:#faf7f5;color:#222}
+.site-header{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.5rem;background:#1a1a1a;color:#fff}
+.site-header a{color:#fff;margin-left:1rem;text-decoration:none}
+.brand{font-weight:700;letter-spacing:.1em;margin-left:0!important}
+main{max-width:32rem;margin:2rem auto;padding:0 1rem}
+.card{display:flex;flex-direction:column;gap:1rem}
+label{display:flex;flex-direction:column;gap:.25rem;font-size:.9rem}
+label.check{flex-direction:row;gap:.5rem;align-items:flex-start}
+input[type=email],input[type=password],input[type=text],input[type=tel]{padding:.6rem;border:1px solid #bbb;border-radius:.4rem}
+button{padding:.7rem;border:0;border-radius:.4rem;background:#b08a5b;color:#fff;cursor:pointer}
+form.inline{display:inline}
+form.inline button{padding:.3rem .7rem;margin-left:.5rem}
+.error{color:#a00;background:#fde8e8;padding:.6rem;border-radius:.4rem}

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>{% block title %}KYJA BEAUTÉ{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">KYJA BEAUTÉ</a>
+    <nav>
+      {% if current_user %}
+        <span>{{ current_user.full_name }}</span>
+        <form method="post" action="/auth/logout" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit">Déconnexion</button>
+        </form>
+      {% else %}
+        <a href="/auth/login">Connexion</a>
+        <a href="/auth/register">Créer un compte</a>
+      {% endif %}
+    </nav>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>
