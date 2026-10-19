@@ -101,6 +101,8 @@ class RefreshToken(Base):
     token_hash: Mapped[str] = mapped_column(String(128), unique=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Renseigné seulement quand le jeton a été remplacé par une rotation (pas par une déconnexion ou un vol).
+    replaced_by_id: Mapped[int | None] = mapped_column(Integer)
 
 
 class Service(Base):

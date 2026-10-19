@@ -11,6 +11,7 @@ from app.admin.booking_admin import router as admin_booking_router
 from app.admin.router import router as admin_router
 from app.auth.deps import get_current_user_optional
 from app.auth.router import router as auth_router
+from app.auth.session_refresh import SessionRefreshMiddleware
 from app.bookings.router import router as bookings_router
 from app.config import get_settings
 from app.db.base import get_db
@@ -32,6 +33,7 @@ app = FastAPI(
     redoc_url=None,
     openapi_url="/openapi.json" if settings.is_dev else None,
 )
+app.add_middleware(SessionRefreshMiddleware)  # le plus interne : la route voit la session déjà renouvelée
 app.add_middleware(SecurityMiddleware)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")

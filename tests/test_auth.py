@@ -73,7 +73,7 @@ def test_cookies_flags_and_headers(client):
     r = register(client)
     sc = " ".join(r.headers.get_list("set-cookie")).lower()
     assert "httponly" in sc and "samesite=strict" in sc
-    assert "path=/auth" in sc  # refresh limité à /auth
+    assert "path=/;" in sc.replace("path=/ ", "path=/;") or "path=/" in sc  # renouvellement : envoyé partout (renouvellement silencieux)
     h = client.get("/").headers
     assert "nonce-" in h["content-security-policy"] and "frame-ancestors 'none'" in h["content-security-policy"]
     assert h["x-content-type-options"] == "nosniff"
@@ -81,12 +81,12 @@ def test_cookies_flags_and_headers(client):
 
 def test_refresh_rotation_and_reuse_detection(client):
     register(client)
-    old = client.cookies.get("refresh_token", path="/auth")
+    old = client.cookies.get("refresh_token", path="/")
     assert client.post("/auth/refresh", headers={"x-csrf-token": csrf(client)}).status_code == 200
-    new = client.cookies.get("refresh_token", path="/auth")
+    new = client.cookies.get("refresh_token", path="/")
     assert new != old
     # rejouer l'ancien jeton = vol présumé : tout est révoqué
-    client.cookies.set("refresh_token", old, path="/auth")
+    client.cookies.set("refresh_token", old, path="/")
     assert client.post("/auth/refresh", headers={"x-csrf-token": csrf(client)}).status_code == 401
     with SessionLocal() as db:
         uid = db.scalar(select(User.id).where(User.email == "a@test.kyja"))

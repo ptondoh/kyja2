@@ -425,6 +425,24 @@ Révocation :
   Déconnexion globale        → idem
 ```
 
+#### Renouvellement silencieux (`app/auth/session_refresh.py`)
+
+Le cookie d'accès expire au bout de 15 minutes ; sans renouvellement, la cliente et l'admin étaient déconnectés. Un middleware (le plus interne de la pile) renouvelle la session **avant** que la requête n'atteigne la route :
+
+```
+Requête avec cookie d'accès absent/expiré + cookie refresh présent
+  → silent_refresh() : le refresh est valide ?  oui → rotation (ancien révoqué, successeur créé, 30 j repartent à zéro)
+  → nouveau cookie d'accès injecté dans la requête (la route voit la session) ET posé sur la réponse
+Requête simultanée portant le même ancien refresh (images, HTMX) → tolérée 15 s SI l'ancien jeton a été remplacé par
+  une rotation dont le successeur est valide : elle reçoit seulement un cookie d'accès (pas de fausse alerte de vol)
+Jeton rejoué hors tolérance, ou révoqué par déconnexion / « déconnexion partout » / alerte de vol → toutes les sessions coupées
+```
+
+* Le cookie refresh est envoyé à **toutes** les routes (`Path=/`, HttpOnly, SameSite=Strict, Secure hors dev), condition du renouvellement.
+* **Jamais de renouvellement** pour `/static`, `/media-files`, `/health`, ni pour `/auth/logout`, `/auth/logout-all`, `/auth/refresh` : une déconnexion ne doit pas être défaite par le renouvellement ; `/auth/refresh` reste strict (clients mobiles).
+* `refresh_tokens.replaced_by_id` relie un jeton à son successeur : c'est ce qui distingue une rotation (tolérée un court instant) d'une révocation volontaire (jamais tolérée).
+* Aucun surcoût pour les visiteuses sans cookie ; une requête de renouvellement par session et par tranche de 15 minutes d'activité.
+
 > **Pourquoi cookie HttpOnly plutôt que localStorage/Authorization header côté web :** élimine le risque de vol de token par XSS, cohérent avec un rendu serveur où le navigateur envoie les cookies automatiquement à chaque requête HTMX.
 
 ### Flux d'authentification (future app mobile — React Native/Expo, Phase 3+)

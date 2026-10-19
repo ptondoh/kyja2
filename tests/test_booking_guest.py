@@ -181,14 +181,24 @@ def test_slot_taken_while_signing_up_gives_a_clear_conflict(setup):
     assert 'class="cal"' in r.text  # on lui propose directement un autre créneau
 
 
-def test_session_expiring_at_confirmation_keeps_the_choice(setup):
+def test_access_cookie_expiring_at_confirmation_is_renewed_and_confirms_directly(setup):
     c = visitor()
     register(c)
     start, _ = review(c, setup)
-    c.cookies.delete("access_token")  # la session de 15 min est tombée
+    c.cookies.delete("access_token")  # 15 minutes écoulées : le renouvellement silencieux reprend la main
+    r = c.post("/bookings", data=confirm_data(c, setup, start))
+    assert r.status_code == 303 and r.headers["location"].endswith("?new=1")  # confirmée, sans repasser par la connexion
+
+
+def test_session_lost_at_confirmation_keeps_the_choice(setup):
+    c = visitor()
+    register(c)
+    start, _ = review(c, setup)
+    c.cookies.delete("access_token")
+    c.cookies.delete("refresh_token", path="/")  # session vraiment perdue : plus de renouvellement possible
     r = c.post("/bookings", data=confirm_data(c, setup, start))
     assert r.status_code == 303 and r.headers["location"] == f"/auth/login?next={quote(RESUME)}"
-    assert len(drafts_in_db()) == 1
+    assert len(drafts_in_db()) == 1  # le choix est gardé
     r = c.post("/auth/login", data={"email": "a@test.kyja", "password": "correct horse battery", "next": RESUME, "csrf_token": csrf(c)})
     assert "Confirmer la réservation" in html.unescape(c.get(RESUME).text)
 
