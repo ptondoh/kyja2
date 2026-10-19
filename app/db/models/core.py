@@ -9,14 +9,17 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql import expression
 
 from app.db.base import Base
 
@@ -42,6 +45,16 @@ class AppointmentStatus(str, enum.Enum):
     confirmed = "confirmed"
     cancelled = "cancelled"
     completed = "completed"
+
+
+class PricingMode(str, enum.Enum):
+    estimate = "estimate"  # prix estimatif affiché (mode de réservation « catalog »)
+    quote = "quote"  # sans prix préétabli, à confirmer au salon (mode « custom »)
+
+
+class BookingMode(str, enum.Enum):
+    catalog = "catalog"
+    custom = "custom"
 
 
 class ExperienceLevel(str, enum.Enum):
@@ -91,6 +104,9 @@ class RefreshToken(Base):
 
 class Service(Base):
     __tablename__ = "services"
+    __table_args__ = (
+        Index("uq_services_custom_request", "is_custom_request", unique=True, postgresql_where=text("is_custom_request")),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
@@ -98,8 +114,13 @@ class Service(Base):
     description: Mapped[str | None] = mapped_column(Text)
     base_duration_min: Mapped[int] = mapped_column(Integer)
     buffer_min: Mapped[int] = mapped_column(Integer, default=0)
-    price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    pricing_mode: Mapped[PricingMode] = mapped_column(
+        Enum(PricingMode, name="pricing_mode"), default=PricingMode.estimate
+    )
+    price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))  # NULL si pricing_mode = quote
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Prestation intégrée « Demande sur mesure » (mode 2) : une seule, absente du catalogue public.
+    is_custom_request: Mapped[bool] = mapped_column(Boolean, default=False, server_default=expression.false())
 
     media: Mapped[list["Media"]] = relationship(
         back_populates="service", order_by="Media.position", cascade="all, delete-orphan"
@@ -169,10 +190,17 @@ class Hairdresser(Base):
     experience_level: Mapped[ExperienceLevel] = mapped_column(
         Enum(ExperienceLevel, name="experience_level"), default=ExperienceLevel.senior
     )
+    # Multiplie la durée de base d'une prestation (1.00 = standard, < 1 = plus rapide).
+    duration_coefficient: Mapped[Decimal] = mapped_column(Numeric(4, 2), default=Decimal("1.00"))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     user: Mapped[User] = relationship()
     slots: Mapped[list["AvailabilitySlot"]] = relationship(cascade="all, delete-orphan")
+
+
+Hairdresser.__table_args__ = (
+    CheckConstraint("duration_coefficient BETWEEN 0.50 AND 3.00", name="hairdresser_coefficient"),
+)
 
 
 class AvailabilitySlot(Base):
@@ -223,15 +251,51 @@ class Appointment(Base):
     client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     hairdresser_id: Mapped[int] = mapped_column(ForeignKey("hairdressers.id"), index=True)
     service_id: Mapped[int] = mapped_column(ForeignKey("services.id"))
+    booking_mode: Mapped[BookingMode] = mapped_column(Enum(BookingMode, name="booking_mode"))
+    client_notes: Mapped[str | None] = mapped_column(Text)
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     status: Mapped[AppointmentStatus] = mapped_column(
         Enum(AppointmentStatus, name="appointment_status"), default=AppointmentStatus.confirmed
     )
-    price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    # Calcul mémorisé : reste valable si le coefficient de la coiffeuse change ensuite.
+    base_duration_min: Mapped[int] = mapped_column(Integer)
+    coefficient_used: Mapped[Decimal] = mapped_column(Numeric(4, 2))
+    buffer_min: Mapped[int] = mapped_column(Integer)
+    computed_duration_min: Mapped[int] = mapped_column(Integer)
+    estimated_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))  # NULL = à confirmer
+    final_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))  # saisi au salon
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    client: Mapped[User] = relationship()
+    hairdresser: Mapped[Hairdresser] = relationship()
+    service: Mapped[Service] = relationship()
     resources: Mapped[list["AppointmentResource"]] = relationship(cascade="all, delete-orphan")
+    photos: Mapped[list["BookingPhoto"]] = relationship(
+        back_populates="appointment", order_by="BookingPhoto.id", cascade="all, delete-orphan"
+    )
+
+
+class BookingPhoto(Base):
+    """Photo d'inspiration jointe à une demande sur mesure (données personnelles : stockage privé).
+
+    Tant que `appointment_id` est NULL, c'est un brouillon : il est purgé après 24 h s'il n'est pas utilisé.
+    """
+
+    __tablename__ = "booking_photos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    appointment_id: Mapped[int | None] = mapped_column(
+        ForeignKey("appointments.id", ondelete="CASCADE"), index=True
+    )
+    storage_key: Mapped[str] = mapped_column(String(500))
+    width: Mapped[int] = mapped_column(Integer)
+    height: Mapped[int] = mapped_column(Integer)
+    size_bytes: Mapped[int] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    appointment: Mapped[Appointment | None] = relationship(back_populates="photos")
 
 
 class AppointmentResource(Base):

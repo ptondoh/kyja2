@@ -20,8 +20,12 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     email_from: str = "KYJA BEAUTÉ <no-reply@example.com>"
 
+    salon_timezone: str = "America/Toronto"
+
     upload_tmp_dir: str = "./tmp_uploads"
     media_dir: str = "./media_files"  # stockage local si R2 n'est pas configuré
+    private_dir: str = "./private_files"  # photos des clientes : jamais servies publiquement
+    r2_private_bucket: str = "kyja-private"
     image_max_mb: int = 10
     ffmpeg_bin: str = ""
 

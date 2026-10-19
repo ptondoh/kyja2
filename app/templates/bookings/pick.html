@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% from "catalog/_macros.html" import cover, service_price %}
+{% block title %}Réserver {{ service.name }} — KYJA BEAUTÉ{% endblock %}
+{% block content %}
+<p class="steps"><span>1. Coiffure</span><span class="on">2. Coiffeuse &amp; créneau</span><span>3. Récapitulatif</span></p>
+<div class="grid gap-10 lg:grid-cols-[20rem_1fr]">
+  <aside class="lg:sticky lg:top-24 lg:self-start">
+    <div class="tile pointer-events-none">
+      <div class="cover">{{ cover(service.media | selectattr('status.value', 'equalto', 'ready') | list) }}</div>
+      <div class="info">
+        {% if service.category %}<p class="eyebrow">{{ service.category }}</p>{% endif %}
+        <h2>{{ service.name }}</h2>
+        <p class="price">{{ service_price(service) }}</p>
+        <p class="muted">Durée de base : {{ service.base_duration_min | fr_duration }}</p>
+      </div>
+    </div>
+    <p class="mt-3 text-sm"><a href="/bookings/new?mode={{ mode }}" class="link-gold">← Changer de coiffure</a></p>
+  </aside>
+
+  <form method="post" action="/bookings/review" class="card" id="booking-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="service_id" value="{{ service.id }}">
+    {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+    <fieldset class="flex flex-col gap-3" hx-get="/bookings/calendar" hx-trigger="change" hx-target="#calendar" hx-include="closest form" hx-swap="innerHTML">
+      <legend class="mb-2 font-display text-2xl font-semibold">Votre coiffeuse</legend>
+      <label class="choice">
+        <input type="radio" name="hairdresser" value="any" {% if not selected_hairdresser or selected_hairdresser == 'any' %}checked{% endif %}>
+        <span><strong class="font-medium">Peu importe</strong><br><span class="muted">La première coiffeuse disponible vous est assignée.</span></span>
+      </label>
+      {% for h, q in choices %}
+      <label class="choice">
+        <input type="radio" name="hairdresser" value="{{ h.id }}" {% if selected_hairdresser == h.id | string %}checked{% endif %}>
+        <span><strong class="font-medium">{{ h.user.full_name }}</strong><br>
+          <span class="muted">Durée calculée : {{ q.duration_min | fr_duration }}{% if q.buffer_min %} (dont {{ q.buffer_min }} min de repos){% endif %}</span></span>
+      </label>
+      {% endfor %}
+    </fieldset>
+
+    <div>
+      <h2 class="mb-3 text-2xl">Date et heure</h2>
+      <div id="calendar">{% include "bookings/_calendar.html" %}</div>
+      <div id="slots" class="mt-4" aria-live="polite"><p class="muted">Choisissez un jour dans le calendrier pour voir les heures disponibles.</p></div>
+    </div>
+
+    {% if mode == 'custom' %}
+    <section class="flex flex-col gap-4" aria-labelledby="h-demande">
+      <h2 id="h-demande" class="text-2xl">Votre demande</h2>
+      <label>Décrivez la coiffure souhaitée <span class="muted">type, longueur, couleur, idées… (10 caractères minimum)</span>
+        <textarea name="notes" rows="6" maxlength="2000" required minlength="10"
+                  placeholder="Ex : tresses africaines avec rajouts, longueur milieu du dos, couleur noir et bordeaux">{{ notes or '' }}</textarea>
+      </label>
+      <div>
+        <p class="mb-2 text-sm font-normal text-ink-soft">Photos d'inspiration <span class="muted">(facultatif, {{ max_photos }} maximum)</span></p>
+        <input type="file" id="photo-input" class="peer sr-only" accept="image/jpeg,image/png,image/webp" multiple
+               data-max="{{ max_photos }}" data-max-bytes="{{ 10 * 1024 * 1024 }}">
+        <label id="photo-zone" for="photo-input" class="dropzone peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-gold-500">
+          <span class="font-display text-xl font-semibold">Ajouter des photos</span>
+          <span class="muted">Cliquez ou déposez vos images ici — JPEG, PNG ou WebP</span>
+        </label>
+        <p class="mt-2 flex items-center justify-between text-sm"><span id="photo-count" class="muted" aria-live="polite">0 / {{ max_photos }} photos</span>
+          <span id="photo-message" class="text-danger" role="status"></span></p>
+        <ul id="photo-previews" class="photo-grid" aria-label="Photos ajoutées">
+          {% for d in drafts %}
+          <li class="photo-card is-uploaded" data-photo="1" data-id="{{ d.id }}">
+            <img src="/bookings/photos/{{ d.id }}" alt="Photo d'inspiration {{ loop.index }}" loading="lazy">
+            <input type="hidden" name="photo_ids" value="{{ d.id }}">
+            <button type="button" class="photo-remove" data-remove="1" aria-label="Retirer la photo">×</button>
+            <span class="photo-state"></span>
+          </li>
+          {% endfor %}
+        </ul>
+        <p class="muted mt-2 text-xs">Vos photos restent privées : seuls le salon et la coiffeuse assignée peuvent les voir.</p>
+      </div>
+    </section>
+    {% else %}
+    <label>Précisions (facultatif)
+      <textarea name="notes" rows="3" maxlength="2000">{{ notes or '' }}</textarea>
+    </label>
+    {% endif %}
+    <button type="submit" class="btn-gold">Voir le récapitulatif</button>
+  </form>
+</div>
+{% if mode == 'custom' %}<script src="/static/js/booking-photos.js" defer></script>{% endif %}
+{% endblock %}

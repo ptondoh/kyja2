@@ -11,6 +11,7 @@
     {% if error %}<p class="error mb-5" role="alert">{{ error }}</p>{% endif %}
     <form method="post" action="/auth/register" class="card">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="next" value="{{ next or '/' }}">
       <label>Nom complet <input type="text" name="full_name" required maxlength="200" value="{{ form.full_name if form }}" autocomplete="name"></label>
       <label>Email <input type="email" name="email" required value="{{ form.email if form }}" autocomplete="email"></label>
       <label>Téléphone (facultatif) <input type="tel" name="phone" maxlength="50" value="{{ form.phone if form }}" autocomplete="tel"></label>
@@ -23,6 +24,6 @@
       <button type="submit" class="btn-gold w-full">Créer mon compte</button>
     </form>
   </div>
-  <p class="mt-6 text-center text-sm text-muted">Déjà un compte ? <a href="/auth/login" class="link-gold">Se connecter</a></p>
+  <p class="mt-6 text-center text-sm text-muted">Déjà un compte ? <a href="/auth/login{{ '?next=' ~ (next | urlencode) if next and next != '/' else '' }}" class="link-gold">Se connecter</a></p>
 </div>
 {% endblock %}

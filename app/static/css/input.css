@@ -98,7 +98,7 @@
   .tile .info { @apply flex flex-1 flex-col gap-1 p-4; }
   .tile h2 { @apply text-xl leading-snug; }
   .placeholder { @apply grid size-full place-items-center bg-gradient-to-br from-cream to-line; }
-  .placeholder img { @apply size-16 object-contain opacity-60; }
+  .tile .cover .placeholder img { @apply size-16 object-contain opacity-60 group-hover:scale-100; }
   .price { @apply font-display text-xl font-semibold text-gold-700; }
   .badge {
     @apply absolute right-3 top-3 rounded-full bg-ink/80 px-2.5 py-1 text-[0.7rem] font-medium uppercase
@@ -112,6 +112,66 @@
   .gallery { @apply my-6 grid gap-4 sm:grid-cols-2; }
   .gallery img, .gallery video { @apply h-auto w-full rounded-2xl bg-cream object-cover shadow-sm; }
   .desc { @apply max-w-prose text-lg leading-relaxed text-ink-soft; }
+
+  /* Réservation */
+  .slot { @apply cursor-pointer; }
+  .slot input { @apply sr-only; }
+  .slot span {
+    @apply inline-flex rounded-full border border-line bg-white px-4 py-2 text-sm transition hover:border-gold-400;
+  }
+  .slot input:checked + span { @apply border-gold-500 bg-gold-500 font-medium text-ink; }
+  .slot input:focus-visible + span { @apply outline-2 outline-offset-2 outline-gold-500; }
+  .choice {
+    @apply flex-row items-center gap-4 rounded-xl border border-line bg-white p-4 transition hover:border-gold-300
+      has-[:checked]:border-gold-500 has-[:checked]:bg-gold-400/10;
+  }
+  .choice input { @apply size-4 accent-gold-500; }
+  .steps { @apply mb-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs uppercase tracking-widest text-muted; }
+  .steps .on { @apply text-gold-700; }
+  .recap dt { @apply text-xs uppercase tracking-widest text-muted; }
+  .recap dd { @apply mb-4 text-lg text-ink; }
+  .status { @apply inline-block rounded-full px-3 py-1 text-xs font-medium uppercase tracking-wider; }
+  .status-confirmed { @apply bg-gold-300/40 text-gold-700; }
+  .status-completed { @apply bg-ok-bg text-ok; }
+  .status-cancelled { @apply bg-cream text-muted line-through; }
+
+  /* Calendrier de réservation */
+  .cal { @apply mx-auto w-full max-w-md rounded-2xl border border-line bg-white p-4 sm:p-5; }
+  .cal-head { @apply mb-3 flex items-center justify-between; }
+  .cal-title { @apply font-display text-2xl font-semibold; }
+  .cal-nav {
+    @apply grid size-10 cursor-pointer place-items-center rounded-full border border-line text-xl leading-none text-gold-700
+      transition hover:border-gold-400 hover:bg-gold-300/20;
+  }
+  .cal-nav.is-off { @apply cursor-default opacity-30 hover:border-line hover:bg-transparent; }
+  .cal-grid { @apply grid grid-cols-7 gap-1 text-center; }
+  .cal-dow { @apply py-1 text-xs font-medium uppercase tracking-widest text-muted; }
+  .day { @apply relative grid aspect-square place-items-center rounded-full text-sm; }
+  label.day { @apply cursor-pointer bg-gold-300/25 font-medium text-ink transition hover:bg-gold-300/60; }
+  label.day input { @apply sr-only; }
+  label.day:has(input:checked) { @apply bg-gold-500 text-ink shadow-sm; }
+  label.day:has(input:focus-visible) { @apply outline-2 outline-offset-2 outline-gold-500; }
+  .day.is-off { @apply text-muted/40; }
+  .day.is-today { @apply ring-1 ring-gold-500; }
+  .cal-note { @apply mt-3 rounded-lg bg-cream px-3 py-2 text-sm text-muted; }
+  .cal-legend { @apply mt-3 flex items-center gap-2 text-xs text-muted; }
+  .day-key { @apply inline-block size-4 rounded-full bg-gold-300/60; }
+
+  /* Photos d'inspiration */
+  .dropzone {
+    @apply flex cursor-pointer flex-col items-center gap-1 rounded-2xl border-2 border-dashed border-gold-300 bg-cream/60
+      px-4 py-8 text-center transition hover:border-gold-500 hover:bg-gold-300/10;
+  }
+  .photo-grid { @apply mt-3 grid list-none grid-cols-3 gap-2 p-0 sm:grid-cols-5; }
+  .photo-card { @apply relative aspect-square overflow-hidden rounded-xl border border-line bg-cream; }
+  .photo-card img { @apply size-full object-cover; }
+  .photo-card a { @apply block size-full; }
+  .photo-remove {
+    @apply absolute right-1 top-1 grid size-7 cursor-pointer place-items-center rounded-full bg-ink/80 text-lg leading-none
+      text-ivory transition hover:bg-danger;
+  }
+  .photo-state { @apply absolute inset-x-0 bottom-0 bg-ink/60 text-center text-[0.7rem] text-ivory empty:hidden; }
+  .photo-card:not(.is-uploaded) img { @apply opacity-60; }
 
   /* Administration */
   .admin-table { @apply w-full text-left text-sm; }

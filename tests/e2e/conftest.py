@@ -74,3 +74,21 @@ def shot(page):
         page.screenshot(path=str(SHOTS / f"{name}.png"), full_page=full_page)
 
     return _shot
+
+
+def pick_day(page, iso_day: str) -> None:
+    """Clique un jour du calendrier mensuel (avance de mois si besoin) ; les heures se chargent ensuite."""
+    for _ in range(4):
+        day = page.locator(f"label.day:has(input[value='{iso_day}'])")
+        if day.count():
+            day.click()
+            return
+        page.click("button[aria-label='Mois suivant']")
+        page.wait_for_timeout(300)
+    raise AssertionError(f"jour {iso_day} introuvable dans le calendrier")
+
+
+def choose_hairdresser(page, choice_locator) -> None:
+    """Choisit une coiffeuse puis attend le rechargement du calendrier (ses jours disponibles changent)."""
+    with page.expect_response(lambda r: "/bookings/calendar" in r.url and r.status == 200):
+        choice_locator.click()

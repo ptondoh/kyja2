@@ -71,3 +71,57 @@ def get_storage() -> Storage:
     if s.r2_endpoint and s.r2_public_base_url:
         return R2Storage()
     return LocalStorage(Path(s.media_dir))
+
+
+class PrivateStorage:
+    """Stockage des fichiers personnels (photos des clientes) : aucune URL publique.
+
+    Les fichiers ne sont lus que par l'application, après vérification des droits.
+    Local en développement ; bucket R2 distinct (`r2_private_bucket`, sans accès public) en production.
+    """
+
+    def __init__(self):
+        s = get_settings()
+        self._r2 = None
+        if s.r2_endpoint:
+            import boto3
+
+            self._bucket = s.r2_private_bucket
+            self._r2 = boto3.client(
+                "s3",
+                endpoint_url=s.r2_endpoint,
+                aws_access_key_id=s.r2_access_key,
+                aws_secret_access_key=s.r2_secret_key,
+                region_name="auto",
+            )
+        else:
+            self._root = Path(s.private_dir).resolve()
+
+    def _path(self, key: str) -> Path:
+        p = (self._root / key).resolve()
+        if self._root not in p.parents:  # anti path traversal
+            raise ValueError("clé de stockage invalide")
+        return p
+
+    def save(self, data: bytes, key: str, content_type: str = "image/webp") -> None:
+        if self._r2:
+            self._r2.put_object(Bucket=self._bucket, Key=key, Body=data, ContentType=content_type)
+            return
+        dest = self._path(key)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(data)
+
+    def read(self, key: str) -> bytes:
+        if self._r2:
+            return self._r2.get_object(Bucket=self._bucket, Key=key)["Body"].read()
+        return self._path(key).read_bytes()
+
+    def delete(self, key: str) -> None:
+        if self._r2:
+            self._r2.delete_object(Bucket=self._bucket, Key=key)
+        else:
+            self._path(key).unlink(missing_ok=True)
+
+
+def get_private_storage() -> PrivateStorage:
+    return PrivateStorage()

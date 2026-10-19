@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Rendez-vous — KYJA BEAUTÉ{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-2xl">
+  <a href="/bookings" class="link-gold text-sm">← Mes rendez-vous</a>
+  {% if is_new %}
+  <div class="ok mt-4" role="status"><strong class="font-medium">Rendez-vous confirmé.</strong> Nous vous attendons au salon.</div>
+  {% endif %}
+  {% if request.query_params.get('cancelled') %}<div class="ok mt-4" role="status">Rendez-vous annulé.</div>{% endif %}
+  <h1 class="mb-2 mt-6">{{ appt.service.name }}</h1>
+  <p><span class="status status-{{ appt.status.value }}">{{ {'confirmed': 'Confirmé', 'completed': 'Terminé', 'cancelled': 'Annulé'}[appt.status.value] }}</span></p>
+  <div class="panel mt-6">
+    <dl class="recap">
+      <dt>Date</dt><dd>{{ appt.starts_at | fr_date }}</dd>
+      <dt>Horaire</dt><dd>{{ appt.starts_at | fr_time }} → {{ appt.ends_at | fr_time }} <span class="muted">({{ appt.computed_duration_min | fr_duration }})</span></dd>
+      <dt>Coiffeuse</dt><dd>{{ appt.hairdresser.user.full_name }}</dd>
+      <dt>Prix</dt>
+      <dd>{% if appt.final_price is not none %}{{ appt.final_price | money }} <span class="muted">(montant final)</span>
+        {% elif appt.estimated_price is not none %}{{ appt.estimated_price | money }} <span class="muted">(estimation, montant final confirmé au salon)</span>
+        {% else %}À confirmer au salon{% endif %}</dd>
+      {% if appt.client_notes %}<dt>Votre demande</dt><dd class="whitespace-pre-line text-base">{{ appt.client_notes }}</dd>{% endif %}
+      {% if appt.photos %}<dt>Photos d'inspiration ({{ appt.photos | length }})</dt>
+      <dd><ul class="photo-grid">{% for ph in appt.photos %}<li class="photo-card"><a href="/bookings/photos/{{ ph.id }}" target="_blank" rel="noopener"><img src="/bookings/photos/{{ ph.id }}" alt="Photo d'inspiration {{ loop.index }}" loading="lazy"></a></li>{% endfor %}</ul></dd>{% endif %}
+      <dt>Paiement</dt><dd>Au salon (Cash / Interac)</dd>
+    </dl>
+    {% if appt.status.value == 'confirmed' and appt.starts_at > now %}
+    <form method="post" action="/bookings/{{ appt.id }}/cancel">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn-danger">Annuler ce rendez-vous</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

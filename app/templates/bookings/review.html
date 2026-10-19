@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "catalog/_macros.html" import service_price %}
+{% block title %}Récapitulatif — KYJA BEAUTÉ{% endblock %}
+{% block content %}
+<p class="steps"><span>1. Coiffure</span><span>2. Coiffeuse &amp; créneau</span><span class="on">3. Récapitulatif</span></p>
+<div class="mx-auto max-w-2xl">
+  <h1 class="mb-6 text-center">Récapitulatif</h1>
+  <div class="panel">
+    <dl class="recap">
+      <dt>Prestation</dt><dd>{{ service.name }}</dd>
+      <dt>Coiffeuse</dt><dd>{{ hairdresser.user.full_name }}{% if choice == 'any' %} <span class="muted">(assignée automatiquement)</span>{% endif %}</dd>
+      <dt>Date</dt><dd>{{ start | fr_date }}</dd>
+      <dt>Horaire</dt><dd>{{ start | fr_time }} → {{ end | fr_time }}</dd>
+      <dt>Durée calculée</dt>
+      <dd>{{ quote.duration_min | fr_duration }}
+        <span class="muted block text-sm">{{ quote.base_duration_min | fr_duration }} × {{ quote.coefficient }} (coefficient de la coiffeuse){% if quote.buffer_min %} + {{ quote.buffer_min }} min de repos{% endif %}</span></dd>
+      <dt>Prix</dt>
+      <dd>{% if quote.estimated_price is none %}À confirmer au salon{% else %}{{ quote.estimated_price | money }} <span class="muted">(estimation, montant final confirmé au salon)</span>{% endif %}</dd>
+      {% if notes %}<dt>Votre demande</dt><dd class="whitespace-pre-line text-base">{{ notes }}</dd>{% endif %}
+      {% if photos %}<dt>Photos d'inspiration ({{ photos | length }})</dt>
+      <dd><ul class="photo-grid">{% for ph in photos %}<li class="photo-card"><a href="/bookings/photos/{{ ph.id }}" target="_blank" rel="noopener"><img src="/bookings/photos/{{ ph.id }}" alt="Photo d'inspiration {{ loop.index }}" loading="lazy"></a></li>{% endfor %}</ul></dd>{% endif %}
+      <dt>Paiement</dt><dd>Au salon (Cash / Interac)</dd>
+    </dl>
+    {% if error %}<p class="error mb-4" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" action="/bookings" class="flex flex-wrap items-center gap-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="service_id" value="{{ service.id }}">
+      <input type="hidden" name="hairdresser" value="{{ choice }}">
+      <input type="hidden" name="start" value="{{ start.isoformat() }}">
+      <input type="hidden" name="notes" value="{{ notes }}">
+      {% for ph in photos %}<input type="hidden" name="photo_ids" value="{{ ph.id }}">{% endfor %}
+      <button type="submit" class="btn-gold">Confirmer la réservation</button>
+      <button type="submit" formaction="/bookings/edit" class="btn-outline">Modifier</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

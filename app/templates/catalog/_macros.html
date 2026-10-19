@@ -22,14 +22,19 @@
 
 {% macro price(value) -%}{{ "%.2f"|format(value) }} $ CAD{%- endmacro %}
 
-{% macro service_tile(s, media) -%}
-<a class="tile group" href="/services/{{ s.id }}">
+{% macro service_price(s) -%}
+  {%- if s.pricing_mode.value == 'quote' or s.price is none -%}Prix à confirmer au salon
+  {%- else -%}{{ price(s.price) }} <span class="muted">estimé</span>{%- endif -%}
+{%- endmacro %}
+
+{% macro service_tile(s, media, href=none) -%}
+<a class="tile group" href="{{ href or ('/services/' ~ s.id) }}">
   <div class="cover">{{ cover(media) }}</div>
   <div class="info">
     {% if s.category %}<p class="eyebrow">{{ s.category }}</p>{% endif %}
     <h2>{{ s.name }}</h2>
-    <p class="price">{{ price(s.price) }}</p>
-    <p class="muted">{{ s.base_duration_min }} min</p>
+    <p class="price">{{ service_price(s) }}</p>
+    <p class="muted">Durée de base : {{ s.base_duration_min | fr_duration }}</p>
   </div>
 </a>
 {%- endmacro %}

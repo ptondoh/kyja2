@@ -8,7 +8,7 @@
 </div>
 <div class="panel overflow-x-auto !p-2">
 <table class="admin-table"><thead><tr><th>Nom</th><th>Catégorie</th><th>Prix</th><th>Durée</th><th>Actif</th></tr></thead><tbody>
-{% for s in items %}<tr><td><a class="link-gold" href="/admin/services/{{ s.id }}">{{ s.name }}</a></td><td>{{ s.category or '' }}</td><td>{{ "%.2f"|format(s.price) }} $</td><td>{{ s.base_duration_min }} min</td><td>{{ 'oui' if s.is_active else 'non' }}</td></tr>
+{% for s in items %}<tr><td><a class="link-gold" href="/admin/services/{{ s.id }}">{{ s.name }}</a>{% if s.is_custom_request %} <span class="status status-confirmed">intégrée</span>{% endif %}</td><td>{{ s.category or '' }}</td><td>{{ (s.price | money) if s.price is not none else 'sur devis' }}</td><td>{{ s.base_duration_min }} min</td><td>{{ 'oui' if s.is_active else 'non' }}</td></tr>
 {% else %}<tr><td colspan="5" class="muted">Aucune prestation.</td></tr>{% endfor %}
 </tbody></table>
 </div>

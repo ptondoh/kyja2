@@ -1,3 +1,4 @@
+import re
 from decimal import Decimal, InvalidOperation
 
 from fastapi import (
@@ -17,7 +18,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth.deps import require_role
 from app.config import get_settings
 from app.db.base import get_db
-from app.db.models.core import Media, Product, Role, Service, User
+from app.db.models.core import Media, PricingMode, Product, Role, Service, ServiceResource, User
 from app.db.models.settings import get_int_setting, set_setting
 from app.media import service as media_service
 from app.security_middleware import verify_csrf
@@ -91,6 +92,9 @@ def settings_page(
         current_user=user,
         video_max_mb=get_int_setting(db, "video_max_mb"),
         video_max_seconds=get_int_setting(db, "video_max_seconds"),
+        calendar_step_min=get_int_setting(db, "calendar_step_min"),
+        booking_horizon_days=get_int_setting(db, "booking_horizon_days"),
+        booking_min_notice_min=get_int_setting(db, "booking_min_notice_min"),
     )
 
 
@@ -99,12 +103,20 @@ def settings_save(
     request: Request,
     video_max_mb: str = Form(...),
     video_max_seconds: str = Form(...),
+    calendar_step_min: str = Form("15"),
+    booking_horizon_days: str = Form("60"),
+    booking_min_notice_min: str = Form("60"),
     db: Session = Depends(get_db),
     user: User = Depends(require_role(Role.admin)),
 ):
     errors: list[str] = []
     mb = _int(video_max_mb, "Taille maximale (Mo)", 1, 2000, errors)
     sec = _int(video_max_seconds, "Durée maximale (s)", 10, 3600, errors)
+    step = _int(calendar_step_min, "Pas du calendrier (min)", 5, 60, errors)
+    if step is not None and 60 % step:
+        errors.append("Le pas du calendrier doit diviser 60 (5, 10, 15, 20, 30 ou 60).")
+    horizon = _int(booking_horizon_days, "Réservation possible jusqu'à (jours)", 1, 365, errors)
+    notice = _int(booking_min_notice_min, "Délai minimal avant un rendez-vous (min)", 0, 10080, errors)
     if errors:
         return render(
             request,
@@ -114,9 +126,15 @@ def settings_save(
             errors=errors,
             video_max_mb=video_max_mb,
             video_max_seconds=video_max_seconds,
+            calendar_step_min=calendar_step_min,
+            booking_horizon_days=booking_horizon_days,
+            booking_min_notice_min=booking_min_notice_min,
         )
     set_setting(db, "video_max_mb", str(mb))
     set_setting(db, "video_max_seconds", str(sec))
+    set_setting(db, "calendar_step_min", str(step))
+    set_setting(db, "booking_horizon_days", str(horizon))
+    set_setting(db, "booking_min_notice_min", str(notice))
     return _redirect("/admin/settings?saved=1")
 
 
@@ -136,14 +154,27 @@ def service_new(request: Request, user: User = Depends(require_role(Role.admin))
     return render(request, "admin/service_form.html", current_user=user, item=None, media=[])
 
 
-def _service_fields(name, category, description, duration, buffer, price, errors):
+KIND_RE = re.compile(r"^[a-z0-9_]{1,50}$")
+
+
+def _kinds(raw: str, errors: list[str]) -> list[str]:
+    kinds = sorted({k.strip().lower() for k in raw.split(",") if k.strip()})
+    if any(not KIND_RE.match(k) for k in kinds):
+        errors.append("Équipements requis : lettres minuscules, chiffres et _ seulement (ex: wash_basin).")
+    return kinds
+
+
+def _service_fields(name, category, description, duration, buffer, price, pricing_mode, errors):
+    mode = PricingMode.quote if pricing_mode == "quote" else PricingMode.estimate
     return {
         "name": _name(name, errors),
         "category": category.strip()[:100] or None,
         "description": description.strip() or None,
         "base_duration_min": _int(duration, "Durée", 5, 600, errors),
         "buffer_min": _int(buffer or "0", "Temps de repos", 0, 180, errors),
-        "price": _decimal(price, "Prix", errors),
+        "pricing_mode": mode,
+        # Sans prix préétabli (« sur devis »), aucun montant n'est stocké ni promis.
+        "price": _decimal(price, "Prix estimatif", errors) if mode == PricingMode.estimate else None,
     }
 
 
@@ -158,6 +189,8 @@ def service_save(
     base_duration_min: str = Form(""),
     buffer_min: str = Form("0"),
     price: str = Form(""),
+    pricing_mode: str = Form("estimate"),
+    required_kinds: str = Form(""),
     is_active: bool = Form(False),
     db: Session = Depends(get_db),
     user: User = Depends(require_role(Role.admin)),
@@ -166,10 +199,12 @@ def service_save(
     if service_id and not item:
         raise HTTPException(status_code=404)
     errors: list[str] = []
-    fields = _service_fields(name, category, description, base_duration_min, buffer_min, price, errors)
+    fields = _service_fields(name, category, description, base_duration_min, buffer_min, price, pricing_mode, errors)
+    kinds = _kinds(required_kinds, errors)
     if errors:
         form = {**fields, "name": name, "price": price, "base_duration_min": base_duration_min,
-                "buffer_min": buffer_min, "is_active": is_active}  # fmt: skip
+                "buffer_min": buffer_min, "is_active": is_active, "pricing_mode": pricing_mode,
+                "kinds": required_kinds}  # fmt: skip
         return render(
             request, "admin/service_form.html", status_code=400, current_user=user,
             item=item, form=form, errors=errors, media=item.media if item else [],
@@ -180,6 +215,8 @@ def service_save(
     for k, v in fields.items():
         setattr(item, k, v)
     item.is_active = is_active
+    db.flush()
+    item.resource_types = [ServiceResource(service_id=item.id, resource_kind=k) for k in kinds]
     db.commit()
     return _redirect(f"/admin/services/{item.id}?saved=1")
 

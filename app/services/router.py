@@ -22,13 +22,15 @@ def list_services(
     db: Session = Depends(get_db),
     user: User | None = Depends(get_current_user_optional),
 ):
-    q = select(Service).options(selectinload(Service.media)).where(Service.is_active.is_(True))
+    q = select(Service).options(selectinload(Service.media)).where(
+        Service.is_active.is_(True), Service.is_custom_request.is_(False)
+    )
     if category:
         q = q.where(Service.category == category)
     services = db.scalars(q.order_by(Service.category, Service.name)).all()
     categories = db.scalars(
         select(Service.category)
-        .where(Service.is_active.is_(True), Service.category.is_not(None))
+        .where(Service.is_active.is_(True), Service.is_custom_request.is_(False), Service.category.is_not(None))
         .distinct()
         .order_by(Service.category)
     ).all()
@@ -52,7 +54,7 @@ def service_detail(
     service = db.scalar(
         select(Service).options(selectinload(Service.media)).where(Service.id == service_id)
     )
-    if not service or not service.is_active:
+    if not service or not service.is_active or service.is_custom_request:
         raise HTTPException(status_code=404)
     return render(
         request,

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "catalog/_macros.html" import service_tile %}
+{% block title %}{{ 'Choisir une coiffure' if mode == 'catalog' else 'Demande sur mesure' }} — KYJA BEAUTÉ{% endblock %}
+{% block content %}
+<p class="steps"><span class="on">1. Coiffure</span><span>2. Coiffeuse &amp; créneau</span><span>3. Récapitulatif</span></p>
+<header class="mb-10 text-center">
+  <h1>{{ 'Choisir une coiffure' if mode == 'catalog' else 'Demande sur mesure' }}</h1>
+  <p class="mx-auto mt-3 max-w-xl text-muted">
+    {% if mode == 'catalog' %}Le prix affiché est une estimation ; le montant final est confirmé au salon.
+    {% else %}Ces prestations n'ont pas de prix préétabli : il sera confirmé au salon. Vous décrirez votre demande à l'étape suivante.{% endif %}
+  </p>
+  <div class="gold-rule mt-4"></div>
+</header>
+<div class="tiles">
+  {% if mode == 'custom' and custom_service %}
+  <a class="tile group" href="/bookings/new/{{ custom_service.id }}">
+    <div class="cover"><div class="placeholder"><img src="/static/img/logo-mark.png" alt="" loading="lazy"></div></div>
+    <div class="info"><p class="eyebrow">Sur mesure</p><h2>Autre demande</h2>
+      <p class="price">Prix à confirmer au salon</p><p class="muted">Décrivez votre idée et joignez vos photos</p></div>
+  </a>
+  {% endif %}
+  {% for s, media in services %}{{ service_tile(s, media, href='/bookings/new/' ~ s.id) }}
+  {% else %}{% if mode == 'catalog' %}<p class="col-span-full text-center text-muted">Aucune prestation de ce type pour le moment.
+    <a class="link-gold" href="/bookings/new?mode=custom">Faire une demande sur mesure</a>.</p>{% endif %}{% endfor %}
+</div>
+<p class="mt-8 text-center"><a href="/bookings/new" class="link-gold text-sm">← Changer de mode de réservation</a></p>
+{% endblock %}

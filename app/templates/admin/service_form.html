@@ -18,7 +18,17 @@
         <label>Durée de base (min) <input type="number" name="base_duration_min" required min="5" max="600" value="{{ f.base_duration_min if f else '' }}"></label>
         <label>Temps de repos (min) <input type="number" name="buffer_min" min="0" max="180" value="{{ f.buffer_min if f else 0 }}"></label>
       </div>
-      <label>Prix ($ CAD) <input type="text" name="price" required inputmode="decimal" value="{{ f.price if f else '' }}"></label>
+      {% set pm = f.pricing_mode if f else 'estimate' %}
+      {% set pm = pm.value if pm.value is defined else pm %}
+      <label>Tarification
+        <select name="pricing_mode">
+          <option value="estimate" {% if pm == 'estimate' %}selected{% endif %}>Prix estimatif (réservation « choisir une coiffure »)</option>
+          <option value="quote" {% if pm == 'quote' %}selected{% endif %}>Sur devis — prix à confirmer au salon (« demande sur mesure »)</option>
+        </select></label>
+      <label>Prix estimatif ($ CAD) <span class="muted">ignoré si « sur devis »</span>
+        <input type="text" name="price" inputmode="decimal" value="{{ (f.price if f.price is not none else '') if f else '' }}"></label>
+      <label>Équipements requis <span class="muted">types séparés par des virgules, ex : wash_basin, dryer_hood</span>
+        <input type="text" name="required_kinds" maxlength="300" value="{{ (f.kinds if f.kinds is defined else (f.resource_types | map(attribute='resource_kind') | join(', '))) if f else '' }}"></label>
       <label class="check"><input type="checkbox" name="is_active" value="true" {% if not f or f.is_active %}checked{% endif %}> <span>Visible dans le catalogue</span></label>
       <button type="submit" class="btn-gold">Enregistrer</button>
     </form>

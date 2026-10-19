@@ -6,6 +6,8 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <meta name="theme-color" content="#141210">
   <title>{% block title %}KYJA BEAUTÉ{% endblock %}</title>
+  <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"selfRequestsOnly":true}'>
+  <script src="/static/js/htmx.min.js" defer></script>
   <link rel="icon" href="/static/img/favicon.png" type="image/png">
   <link rel="preload" href="/static/fonts/CormorantGaramond-600.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/css/style.css">
@@ -28,6 +30,7 @@
       <nav class="absolute inset-x-0 top-16 hidden flex-col gap-1 border-b border-ink-line bg-ink px-4 py-4 text-sm tracking-wide peer-checked:flex md:static md:flex md:flex-row md:items-center md:gap-7 md:border-0 md:bg-transparent md:p-0" aria-label="Navigation principale">
         <a href="/services" class="py-2 text-ivory/85 hover:text-gold-300">Prestations</a>
         <a href="/products" class="py-2 text-ivory/85 hover:text-gold-300">Produits</a>
+        {% if current_user %}<a href="/bookings" class="py-2 text-ivory/85 hover:text-gold-300">Mes rendez-vous</a>{% endif %}
         {% if current_user and current_user.role.value == 'admin' %}<a href="/admin" class="py-2 text-gold-300 hover:text-gold-200">Admin</a>{% endif %}
         {% if current_user %}
           <span class="py-2 text-ivory/60 md:border-l md:border-ink-line md:pl-7">{{ current_user.full_name }}</span>
@@ -37,8 +40,9 @@
           </form>
         {% else %}
           <a href="/auth/login" class="py-2 text-ivory/85 hover:text-gold-300">Connexion</a>
-          <a href="/auth/register" class="btn-gold btn-sm">Créer un compte</a>
+          <a href="/auth/register" class="btn-outline-light btn-sm">Créer un compte</a>
         {% endif %}
+        <a href="/bookings/new" class="btn-gold btn-sm">Réserver</a>
       </nav>
     </div>
   </header>

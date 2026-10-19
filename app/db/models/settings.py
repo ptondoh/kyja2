@@ -7,6 +7,9 @@ from app.db.base import Base
 DEFAULT_SETTINGS: dict[str, str] = {
     "video_max_mb": "100",
     "video_max_seconds": "180",
+    "calendar_step_min": "15",  # pas du calendrier et arrondi des durées
+    "booking_horizon_days": "60",  # jusqu'à quand on peut réserver
+    "booking_min_notice_min": "60",  # délai minimal avant le début d'un rendez-vous
 }
 
 

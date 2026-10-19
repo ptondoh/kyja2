@@ -26,15 +26,23 @@ MIN_PASSWORD, MAX_PASSWORD = 10, 128
 GENERIC_LOGIN_ERROR = "Email ou mot de passe incorrect."
 
 
+def safe_next(value: str | None) -> str:
+    """N'accepte qu'un chemin local (évite la redirection ouverte vers un site externe)."""
+    if value and value.startswith("/") and not value.startswith("//") and "\\" not in value:
+        return value
+    return "/"
+
+
 def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
 @router.get("/login")
 def login_page(request: Request, user: User | None = Depends(get_current_user_optional)):
+    nxt = safe_next(request.query_params.get("next"))
     if user:
-        return RedirectResponse("/", status_code=303)
-    return render(request, "auth/login.html")
+        return RedirectResponse(nxt, status_code=303)
+    return render(request, "auth/login.html", next=nxt)
 
 
 @router.post("/login")
@@ -42,8 +50,10 @@ def login(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
+    next: str = Form("/"),
     db: Session = Depends(get_db),
 ):
+    next = safe_next(next)
     email = email.strip().lower()
     ip_key, email_key = f"ip:{_client_ip(request)}", f"email:{email}"
 
@@ -53,6 +63,7 @@ def login(
             "auth/login.html",
             status_code=429,
             error="Trop de tentatives. Réessayez dans 15 minutes.",
+            next=next,
         )
 
     user = db.scalar(select(User).where(User.email == email))
@@ -61,20 +72,22 @@ def login(
     if not (user and ok and user.is_active and not user.anonymized_at):
         login_limiter.hit(ip_key)
         login_limiter.hit(email_key)
-        return render(request, "auth/login.html", status_code=401, error=GENERIC_LOGIN_ERROR)
+        return render(
+            request, "auth/login.html", status_code=401, error=GENERIC_LOGIN_ERROR, next=next
+        )
 
     login_limiter.reset(email_key)
     if needs_rehash(user.password_hash):
         user.password_hash = hash_password(password)
         db.commit()
-    response = RedirectResponse("/", status_code=303)
+    response = RedirectResponse(next, status_code=303)
     service.issue_session(db, user, response)
     return response
 
 
 @router.get("/register")
 def register_page(request: Request):
-    return render(request, "auth/register.html")
+    return render(request, "auth/register.html", next=safe_next(request.query_params.get("next")))
 
 
 @router.post("/register")
@@ -86,12 +99,14 @@ def register(
     phone: str = Form(""),
     accept_terms: bool = Form(False),
     marketing_optin: bool = Form(False),
+    next: str = Form("/"),
     db: Session = Depends(get_db),
 ):
+    next = safe_next(next)
     ip_key = f"ip:{_client_ip(request)}"
     if register_limiter.is_limited(ip_key):
         return render(
-            request, "auth/register.html", status_code=429, error="Trop de demandes. Réessayez plus tard."
+            request, "auth/register.html", status_code=429, error="Trop de demandes. Réessayez plus tard.", next=next
         )
     register_limiter.hit(ip_key)
 
@@ -116,6 +131,7 @@ def register(
             status_code=400,
             error=error,
             form={"full_name": full_name, "email": email, "phone": phone},
+            next=next,
         )
 
     user = User(
@@ -132,7 +148,7 @@ def register(
     db.add(ConsentRecord(user_id=user.id, kind="marketing", granted=marketing_optin))
     db.commit()
 
-    response = RedirectResponse("/", status_code=303)
+    response = RedirectResponse(next, status_code=303)
     service.issue_session(db, user, response)
     return response
 

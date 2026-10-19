@@ -4,11 +4,17 @@
 <a href="/admin" class="link-gold text-sm">← Administration</a>
 <h1 class="mb-6 mt-4">Réglages</h1>
 <div class="panel max-w-xl">
-  <h2 class="mb-4">Vidéos téléversées</h2>
+  <h2 class="mb-4">Réglages</h2>
   {% if request.query_params.get('saved') %}<p class="ok mb-5">Enregistré.</p>{% endif %}
   {% if errors %}<div class="error mb-5" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
   <form method="post" action="/admin/settings" class="card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <h3 class="mt-2 text-xl">Réservation</h3>
+    <label>Pas du calendrier (minutes) <span class="muted">arrondi des durées et grille des créneaux (5, 10, 15, 20, 30 ou 60)</span>
+      <input type="number" name="calendar_step_min" min="5" max="60" required value="{{ calendar_step_min }}"></label>
+    <label>Réservation possible jusqu'à (jours) <input type="number" name="booking_horizon_days" min="1" max="365" required value="{{ booking_horizon_days }}"></label>
+    <label>Délai minimal avant un rendez-vous (minutes) <input type="number" name="booking_min_notice_min" min="0" max="10080" required value="{{ booking_min_notice_min }}"></label>
+    <h3 class="mt-4 text-xl">Vidéos téléversées</h3>
     <label>Taille maximale d'une vidéo (Mo) <input type="number" name="video_max_mb" min="1" max="2000" required value="{{ video_max_mb }}"></label>
     <label>Durée maximale d'une vidéo (secondes) <input type="number" name="video_max_seconds" min="10" max="3600" required value="{{ video_max_seconds }}"></label>
     <button type="submit" class="btn-gold">Enregistrer</button>

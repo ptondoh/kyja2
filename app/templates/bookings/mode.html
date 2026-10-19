@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Réserver — KYJA BEAUTÉ{% endblock %}
+{% block content %}
+<header class="mb-10 text-center">
+  <p class="eyebrow">Réservation en ligne</p>
+  <h1>Comment souhaitez-vous réserver ?</h1>
+  <div class="gold-rule mt-4"></div>
+</header>
+<div class="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
+  <a href="/bookings/new?mode=catalog" class="panel group block transition hover:-translate-y-1 hover:border-gold-400 hover:shadow-lg">
+    <p class="eyebrow">Option 1</p>
+    <h2 class="mt-1 text-3xl">Choisir une coiffure</h2>
+    <p class="mt-3 text-muted">Parmi nos coiffures du catalogue, avec un <strong class="font-medium text-ink">prix estimatif</strong> affiché dès maintenant. Le montant final est confirmé au salon.</p>
+    <p class="mt-6 text-sm font-medium text-gold-700">Voir les coiffures →</p>
+  </a>
+  <a href="/bookings/new?mode=custom" class="panel group block transition hover:-translate-y-1 hover:border-gold-400 hover:shadow-lg">
+    <p class="eyebrow">Option 2</p>
+    <h2 class="mt-1 text-3xl">Demande sur mesure</h2>
+    <p class="mt-3 text-muted">Une coiffure sans prix préétabli ? Décrivez votre idée : la durée est calculée pour vous et le <strong class="font-medium text-ink">prix est confirmé au salon</strong>.</p>
+    <p class="mt-6 text-sm font-medium text-gold-700">Faire une demande →</p>
+  </a>
+</div>
+<p class="mt-8 text-center text-sm text-muted">Dans les deux cas, la durée du rendez-vous est calculée selon la coiffeuse choisie. Paiement au salon (Cash / Interac).</p>
+{% endblock %}

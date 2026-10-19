@@ -1,0 +1,38 @@
+{# Calendrier mensuel : seuls les jours avec au moins un créneau libre sont cliquables. #}
+<input type="hidden" name="cal_month" value="{{ month_first.strftime('%Y-%m') }}">
+<div class="cal">
+  <div class="cal-head">
+    {% if prev_month %}
+    <button type="button" class="cal-nav" aria-label="Mois précédent"
+            hx-get="/bookings/calendar" hx-vals='{"month": "{{ prev_month.strftime('%Y-%m') }}"}' hx-include="closest form" hx-target="#calendar" hx-swap="innerHTML">‹</button>
+    {% else %}<span class="cal-nav is-off" aria-hidden="true">‹</span>{% endif %}
+    <p class="cal-title" aria-live="polite">{{ month_first | fr_month | capitalize }}</p>
+    {% if next_month %}
+    <button type="button" class="cal-nav" aria-label="Mois suivant"
+            hx-get="/bookings/calendar" hx-vals='{"month": "{{ next_month.strftime('%Y-%m') }}"}' hx-include="closest form" hx-target="#calendar" hx-swap="innerHTML">›</button>
+    {% else %}<span class="cal-nav is-off" aria-hidden="true">›</span>{% endif %}
+  </div>
+  <div class="cal-grid" role="group" aria-label="Choisir un jour">
+    {% for d in ['L', 'M', 'M', 'J', 'V', 'S', 'D'] %}<span class="cal-dow" aria-hidden="true">{{ d }}</span>{% endfor %}
+    {% for week in weeks %}{% for cell in week %}
+      {% if cell is none %}<span></span>
+      {% elif cell.available %}
+      <label class="day{% if cell.today %} is-today{% endif %}">
+        <input type="radio" name="day" value="{{ cell.date.isoformat() }}"
+               hx-get="/bookings/slots" hx-trigger="change" hx-target="#slots" hx-swap="innerHTML" hx-include="closest form">
+        <span aria-label="{{ cell.date | fr_date }}">{{ cell.date.day }}</span>
+      </label>
+      {% else %}
+      <span class="day is-off{% if cell.today %} is-today{% endif %}" aria-disabled="true"><span>{{ cell.date.day }}</span></span>
+      {% endif %}
+    {% endfor %}{% endfor %}
+  </div>
+  {% if not salon_open_online %}
+  <p class="cal-note">Le salon n'a pas encore ouvert de créneaux en ligne. Merci de revenir bientôt.</p>
+  {% elif not any_available %}
+  <p class="cal-note">Aucun jour disponible ce mois-ci. Essayez le mois suivant ou une autre coiffeuse.</p>
+  {% else %}
+  <p class="cal-legend"><span class="day-key"></span> jours disponibles</p>
+  {% endif %}
+</div>
+{% if oob %}<div id="slots" hx-swap-oob="innerHTML"><p class="muted">Choisissez un jour dans le calendrier pour voir les heures disponibles.</p></div>{% endif %}

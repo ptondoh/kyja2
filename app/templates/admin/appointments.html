@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Rendez-vous — Admin{% endblock %}
+{% block content %}
+<a href="/admin" class="link-gold text-sm">← Administration</a>
+<h1 class="mb-6 mt-4">Rendez-vous</h1>
+<div class="panel overflow-x-auto !p-2">
+<table class="admin-table"><thead><tr><th>Date</th><th>Cliente</th><th>Coiffeuse</th><th>Prestation</th><th>Durée</th><th>Prix estimé</th><th>Prix final</th><th>Statut</th><th></th></tr></thead><tbody>
+{% for a in items %}<tr>
+  <td>{{ a.starts_at | fr_date }}<br><span class="muted">{{ a.starts_at | fr_time }} → {{ a.ends_at | fr_time }}</span></td>
+  <td>{{ a.client.full_name }}</td>
+  <td>{{ a.hairdresser.user.full_name }}</td>
+  <td>{{ a.service.name }}{% if a.booking_mode.value == 'custom' %} <span class="status status-confirmed">sur mesure</span>{% endif %}
+    {% if a.client_notes %}<br><span class="muted whitespace-pre-line">{{ a.client_notes }}</span>{% endif %}
+    {% if a.photos %}<ul class="photo-grid w-72 max-w-full !grid-cols-5">{% for ph in a.photos %}<li class="photo-card"><a href="/bookings/photos/{{ ph.id }}" target="_blank" rel="noopener"><img src="/bookings/photos/{{ ph.id }}" alt="Photo d'inspiration {{ loop.index }}" loading="lazy"></a></li>{% endfor %}</ul>{% endif %}</td>
+  <td>{{ a.computed_duration_min | fr_duration }}<br><span class="muted">{{ a.base_duration_min }} min × {{ a.coefficient_used }} + {{ a.buffer_min }}</span></td>
+  <td>{{ a.estimated_price | money if a.estimated_price is not none else 'à confirmer' }}</td>
+  <td>{{ a.final_price | money }}</td>
+  <td><span class="status status-{{ a.status.value }}">{{ {'confirmed': 'Confirmé', 'completed': 'Terminé', 'cancelled': 'Annulé'}[a.status.value] }}</span></td>
+  <td class="whitespace-nowrap">
+    {% if a.status.value != 'cancelled' %}
+    <form method="post" action="/admin/appointments/{{ a.id }}/final-price" class="inline-flex items-center gap-2">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="text" name="price" inputmode="decimal" required placeholder="Prix final" aria-label="Prix final" class="!w-28 !py-1.5 !text-sm" value="{{ a.final_price if a.final_price is not none else '' }}">
+      <button type="submit" class="btn-outline btn-sm">{{ 'Corriger' if a.final_price is not none else 'Terminer' }}</button>
+    </form>
+    {% endif %}
+    {% if a.status.value == 'confirmed' and a.starts_at > now %}
+    <form method="post" action="/admin/appointments/{{ a.id }}/cancel" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn-danger">Annuler</button></form>
+    {% endif %}
+  </td>
+</tr>{% else %}<tr><td colspan="9" class="muted">Aucun rendez-vous.</td></tr>{% endfor %}
+</tbody></table>
+</div>
+{% endblock %}

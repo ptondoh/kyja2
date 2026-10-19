@@ -101,7 +101,7 @@ def test_service_create_edit_and_public_listing(admin, client):
 def test_service_validation_errors(admin):
     r = create_service(admin, price="abc", base_duration_min="1")
     assert r.status_code == 400
-    assert "Prix invalide" in r.text and "Durée doit être" in r.text
+    assert "Prix estimatif invalide" in r.text and "Durée doit être" in r.text
     assert service_id() is None
     assert create_service(admin, price="-5").status_code == 400
     assert create_service(admin, name="  ").status_code == 400

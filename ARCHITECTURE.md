@@ -175,13 +175,20 @@ app/
 ### Pattern HTMX pour les interactions clés
 
 ```
-Réservation (wizard en étapes) :
-  1. GET /bookings/new                     → page complète (étape "choisir un service")
-  2. Clic service → HTMX GET /bookings/availability?service_id=X&date=Y
-                                            → fragment HTML (grille de créneaux dispo)
-  3. Clic créneau → Alpine stocke la sélection en état local (pas de requête serveur)
-  4. Soumission finale → HTMX POST /bookings/
-                                            → transaction atomique + fragment de confirmation
+Réservation (wizard en étapes, deux modes — voir PRD 4.A) :
+  1. GET /bookings/new?mode=catalog|custom → page complète ("choisir une coiffure" ; mode custom : directement le formulaire)
+  2. Choix coiffure → HTMX GET /bookings/hairdressers?service_id=X
+                                            → fragment : coiffeuses avec LEUR durée calculée
+                                              ("2 h 15 avec Marie") + option "peu importe"
+  3. Choix coiffeuse → HTMX GET /bookings/calendar (jours disponibles du mois) ; clic sur un jour → HTMX GET /bookings/slots
+                                            → fragment HTML (heures où la durée COMPLÈTE tient)
+  4. Clic créneau → Alpine stocke la sélection en état local (pas de requête serveur)
+  5. Récapitulatif (prix estimatif ou "à confirmer", durée, fin prévue)
+  6. Soumission finale → HTMX POST /bookings/
+                                            → recalcul serveur + transaction atomique + fragment de confirmation
+
+  Le serveur ne fait jamais confiance aux valeurs du formulaire : prix, durée et coefficient sont recalculés
+  côté serveur à l'étape 6.
 
 Dashboard admin (validation portfolio) :
   Clic "Valider" → HTMX POST /admin/portfolios/{id}/approve
@@ -207,13 +214,24 @@ clients
 appointments
   ├── hairdresser (N→1)
   ├── service (N→1)
+  ├── booking_mode (catalog | custom)
+  ├── client_notes (mode custom) et photos (booking_photos, 0..10)
+  ├── calcul mémorisé : base_duration_min, coefficient_used, buffer_min, computed_duration_min
+  ├── estimated_price (copie du prix du catalogue, NULL si "à confirmer")
+  ├── final_price (saisi au salon, NULL tant que la prestation n'est pas terminée)
   ├── resources (N→N via appointment_resources)   ← détection conflits
-  └── financial_record (1→1)
+  └── financial_record (1→1)                       ← basé sur final_price
+
+booking_photos                        ← photos d'inspiration, mode custom, DONNÉES PERSONNELLES
+  ├── client_id (→ users, ON DELETE CASCADE)
+  ├── appointment_id (→ appointments, ON DELETE CASCADE ; NULL = brouillon purgé après 24 h)
+  └── storage_key, width, height, size_bytes
 
 hairdressers
   ├── availability_slots (1→N)
   ├── portfolio_files (1→N)           ← pending ou approved
-  ├── experience_level (coefficient)
+  ├── duration_coefficient (défaut 1.0, modifiable par l'admin — utilisé dès le MVP)
+  ├── experience_level (Junior/Senior/Expert : grille de coefficients, V2)
   └── payment_records (1→N)
 
 services
@@ -263,6 +281,7 @@ Données conservées (intégrité légale / comptable) :
   └── consent_records      → conservés intégralement (obligation légale)
 
 Données supprimées :
+  ├── Photos d'inspiration des demandes sur mesure (fichiers privés et lignes booking_photos)
   ├── Photos de profil
   ├── Préférences
   └── Adresses de livraison
@@ -280,15 +299,69 @@ Données supprimées :
 
 ## Moteur de Réservation
 
-### Logique de calcul de durée
+### Deux modes de réservation
+
+| Mode | Service concerné | Prix | Durée |
+|---|---|---|---|
+| `catalog` | Prestation avec `pricing_mode = estimate` et un `price` estimatif | Estimatif affiché, copié dans `estimated_price` | Calculée |
+| `custom` | Prestation avec `pricing_mode = quote` (sans prix préétabli) | « À confirmer au salon », `estimated_price` NULL | Calculée |
+
+Les deux modes partagent **le même moteur** : seul le point de départ du wizard et l'affichage du prix changent.
+
+**Prestation intégrée « Demande sur mesure »** : `services.is_custom_request = true` (index unique partiel : une seule), créée par la migration à l'installation (120 min + 15 min de repos, `pricing_mode = quote`, sans prix), recréée à la volée si elle manque (`engine.custom_request_service`). Absente du catalogue public, de l'accueil et de la liste des coiffures ; modifiable dans l'admin (durée, repos). `GET /bookings/new?mode=custom` redirige directement vers son formulaire quand aucune autre prestation « sur devis » n'existe ; sinon la liste propose aussi « Autre demande ».
+Une prestation « sur devis » a quand même une **durée de base** (nécessaire au calcul).
+
+### Logique de calcul de durée (tous modes)
 
 ```
-Durée totale = (Durée de base du service × Coefficient coiffeuse) + Buffer Time
+Durée calculée = arrondi_au_pas( Durée de base × Coefficient coiffeuse ) + Buffer Time
+Pas du calendrier : 15 min (configurable)
 
-Coefficients :
+Coefficient : champ hairdressers.duration_coefficient (défaut 1.0, modifiable par l'admin)
+Grille indicative par niveau (V2) :
   - Junior  : 1.3  (30% de temps supplémentaire)
   - Senior  : 1.0  (durée standard)
   - Expert  : 0.85 (15% plus rapide)
+```
+
+* Fonction pure `compute_duration(base_min, coefficient, buffer_min, step=15)` dans `app/bookings/engine.py`, testée unitairement (cas limites : coefficient < 1, arrondi, buffer 0).
+* Les valeurs utilisées sont **copiées dans le rendez-vous** (`base_duration_min`, `coefficient_used`, `buffer_min`, `computed_duration_min`) : modifier plus tard le coefficient d'une coiffeuse ne change pas les rendez-vous déjà pris.
+* Mode « peu importe » : le moteur calcule la durée pour **chaque** coiffeuse candidate, retient les créneaux où elle tient entièrement, et assigne la première disponible.
+
+### Photos d'inspiration (mode `custom`)
+
+```
+Sélection → aperçu local immédiat (URL blob:, aucun envoi nécessaire pour l'afficher)
+         → POST /bookings/photos (fetch, en-tête X-CSRF-Token) : validation + ré-encodage WebP
+         → brouillon booking_photos (appointment_id NULL), champ caché photo_ids dans le formulaire
+Confirmation → les brouillons sont rattachés au rendez-vous DANS la transaction de réservation
+Lecture → GET /bookings/photos/{id} : cliente propriétaire, admin, ou coiffeuse assignée (sinon 404)
+```
+
+* **Limites :** 10 photos par demande, 10 Mo par fichier envoyé (`image_max_mb`), 60 envois/heure/cliente, 1600 px de côté maximum après traitement.
+* **Validation :** type détecté sur le contenu réel (`python-magic`) ; JPEG, PNG, WebP seulement ; image décodée et ré-encodée en WebP, ce qui **supprime tous les EXIF** (géolocalisation des photos de téléphone) ; protection contre les images piégées (limite de pixels).
+* **Stockage privé :** dossier `private_files/` en développement, bucket R2 **distinct et sans accès public** (`r2_private_bucket`) en production. Jamais sous `/media-files`, jamais d'URL publique : tout passe par la route qui contrôle les droits.
+* **Cycle de vie :** brouillons non utilisés purgés après 24 h (à chaque envoi, puis par une tâche Celery planifiée) ; suppression des fichiers lors du droit à l'oubli et de la suppression d'un rendez-vous.
+* **CSP :** `img-src` autorise `blob:` pour les aperçus ; le script (`/static/js/booking-photos.js`) est servi depuis le site, sans JavaScript en ligne.
+
+### Calendrier mensuel (HTMX)
+
+```
+GET /bookings/calendar?service_id&hairdresser=any|id&month=YYYY-MM  → fragment HTML du mois
+    jours cliquables = engine.available_days() : au moins un créneau libre (durée calculée complète, équipements, délai minimal, horizon)
+    navigation bornée : mois courant → mois de l'horizon (60 j par défaut) ; mois invalide ou hors bornes → ramené dans les bornes
+Clic sur un jour (radio `day`) → GET /bookings/slots → heures précises ; changer de coiffeuse → calendrier rechargé + heures remises à zéro (swap hors-bande)
+```
+
+Le calcul « y a-t-il au moins un créneau ce jour-là ? » s'arrête au premier créneau trouvé (`free_starts(..., limit=1)`). Si aucune coiffeuse n'a de disponibilités, le calendrier affiche un message explicite au lieu d'être vide.
+
+### Prix estimatif et prix final
+
+```
+Réservation  : estimated_price = service.price (mode catalog) | NULL (mode custom)
+Au salon     : final_price saisi par l'admin/coiffeuse à la fin de la prestation
+Finance      : commissions et réconciliation calculées sur final_price uniquement
+Écart        : final_price - estimated_price conservé pour analyse
 ```
 
 ### Détection de conflits (transaction atomique)
@@ -297,7 +370,7 @@ Coefficients :
 BEGIN;
   SET statement_timeout = '5s';       -- éviter les deadlocks prolongés
 
-  -- 1. Vérifier disponibilité coiffeuse
+  -- 1. Vérifier disponibilité coiffeuse sur [début, début + durée calculée]
   SELECT ... FOR UPDATE;
 
   -- 2. Vérifier disponibilité équipements requis
@@ -484,7 +557,8 @@ Tous les envois sont traités de manière **asynchrone via Celery**. En cas d'é
 - [ ] Schéma PostgreSQL complet + migrations Alembic
 - [ ] Auth (inscription / login / cookie session JWT / refresh tokens / révocation / CSRF)
 - [ ] Catalogue services et produits (pages Jinja2)
-- [ ] Moteur de réservation (conflits coiffeuse + équipement, wizard HTMX)
+- [ ] Moteur de réservation : 2 modes (catalogue à prix estimatif / sur mesure), durée calculée par coiffeuse, conflits coiffeuse + équipement, wizard HTMX
+- [ ] Prix estimatif → prix final saisi au salon
 - [ ] Profil client + historique
 - [ ] Interface admin de base (HTMX pour validations en direct)
 - [ ] Celery + Celery Beat configurés
@@ -502,7 +576,7 @@ Tous les envois sont traités de manière **asynchrone via Celery**. En cas d'é
 - [ ] Notifications push Web Push API
 
 ### V2 (Phase 3)
-- [ ] Coefficients d'expérience coiffeuses (Junior/Senior/Expert)
+- [ ] Grille de coefficients par niveau d'expérience (Junior/Senior/Expert) — le coefficient par coiffeuse existe dès le MVP
 - [ ] Programme de fidélité (points automatiques)
 - [ ] POS rapide ("Vente Comptoir" + popup inventaire 10s via Alpine.js)
 - [ ] Routes JSON étendues pour React Native (Expo) + Expo Push Notifications

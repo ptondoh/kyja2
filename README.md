@@ -14,6 +14,9 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
+Pour voir le site avec des données (coiffeuses, horaires, prestations) : `python -m scripts.seed_demo`
+(retrait : `--remove`). Premier compte admin : `python -m scripts.create_admin email "Nom"`.
+
 `ffmpeg` doit être installé pour le traitement des vidéos.
 
 ## Design (Tailwind, sans Node)

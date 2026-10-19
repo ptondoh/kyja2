@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Équipements — Admin{% endblock %}
+{% block content %}
+<a href="/admin" class="link-gold text-sm">← Administration</a>
+<h1 class="mb-2 mt-4">Équipements</h1>
+<p class="muted mb-6">Bacs de lavage, casques… Une prestation qui requiert un type d'équipement ne peut être réservée que s'il en reste un de libre.</p>
+<div class="grid gap-8 lg:grid-cols-[1fr_22rem]">
+  <div class="panel overflow-x-auto !p-2">
+    <table class="admin-table"><thead><tr><th>Type</th><th>Nom</th><th>Actif</th><th></th></tr></thead><tbody>
+    {% for r in items %}<tr><td>{{ r.kind }}</td><td>{{ r.name }}</td><td>{{ 'oui' if r.is_active else 'non' }}</td>
+      <td><form method="post" action="/admin/resources/{{ r.id }}/toggle" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn-outline btn-sm">{{ 'Désactiver' if r.is_active else 'Réactiver' }}</button></form></td></tr>
+    {% else %}<tr><td colspan="4" class="muted">Aucun équipement.</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+  <div class="panel">
+    <h2 class="mb-4">Nouvel équipement</h2>
+    {% if errors %}<div class="error mb-4" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+    <form method="post" action="/admin/resources" class="card">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Type <span class="muted">ex : wash_basin, dryer_hood</span><input type="text" name="kind" required maxlength="50"></label>
+      <label>Nom <input type="text" name="name" required maxlength="100" placeholder="Bac de lavage 1"></label>
+      <button type="submit" class="btn-gold">Ajouter</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

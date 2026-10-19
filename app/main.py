@@ -7,9 +7,11 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session, selectinload
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from app.admin.booking_admin import router as admin_booking_router
 from app.admin.router import router as admin_router
 from app.auth.deps import get_current_user_optional
 from app.auth.router import router as auth_router
+from app.bookings.router import router as bookings_router
 from app.config import get_settings
 from app.db.base import get_db
 from app.db.models.core import Product, Service, User
@@ -37,8 +39,10 @@ Path(settings.media_dir).mkdir(parents=True, exist_ok=True)
 app.mount("/media-files", StaticFiles(directory=settings.media_dir), name="media")
 app.include_router(auth_router)
 app.include_router(services_router)
+app.include_router(bookings_router)
 app.include_router(products_router)
 app.include_router(admin_router)
+app.include_router(admin_booking_router)
 
 
 @app.get("/")
@@ -50,7 +54,7 @@ def index(
     services = db.scalars(
         select(Service)
         .options(selectinload(Service.media))
-        .where(Service.is_active.is_(True))
+        .where(Service.is_active.is_(True), Service.is_custom_request.is_(False))
         .order_by(Service.id.desc())
         .limit(4)
     ).all()

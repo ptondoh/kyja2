@@ -20,7 +20,7 @@ def build_csp(nonce: str) -> str:
             "default-src 'self'",
             f"script-src 'self' 'nonce-{nonce}'",
             "style-src 'self'",
-            f"img-src {media} data:",
+            f"img-src {media} data: blob:",
             f"media-src {media}",
             "object-src 'none'",
             "base-uri 'self'",

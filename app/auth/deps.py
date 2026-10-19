@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
@@ -35,3 +37,11 @@ def require_role(*roles: Role):
         return user
 
     return checker
+
+
+def require_login(request: Request, user: User | None = Depends(get_current_user_optional)) -> User:
+    """Pour les pages HTML : redirige vers la connexion puis revient sur la page demandée."""
+    if not user:
+        target = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+        raise HTTPException(status_code=303, headers={"Location": f"/auth/login?next={quote(target)}"})
+    return user

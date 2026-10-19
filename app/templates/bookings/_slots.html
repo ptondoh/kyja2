@@ -1,0 +1,11 @@
+{% if slots %}
+  {% if quote %}<p class="muted mb-3">Durée avec cette coiffeuse : <strong class="font-medium text-ink">{{ quote.duration_min | fr_duration }}</strong>.</p>
+  {% else %}<p class="muted mb-3">La durée dépend de la coiffeuse qui vous sera assignée.</p>{% endif %}
+  <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Créneaux disponibles">
+    {% for s in slots %}
+    <label class="slot"><input type="radio" name="slot" value="{{ s.isoformat() }}" required><span>{{ s | fr_time }}</span></label>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="muted">{{ message }}</p>
+{% endif %}

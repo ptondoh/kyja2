@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "catalog/_macros.html" import gallery, price %}
+{% from "catalog/_macros.html" import gallery, price, service_price %}
 {% block title %}{{ service.name }} — KYJA BEAUTÉ{% endblock %}
 {% block content %}
 <a href="/services" class="link-gold text-sm">← Toutes les prestations</a>
@@ -8,8 +8,9 @@
   <aside class="order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start">
     {% if service.category %}<p class="eyebrow">{{ service.category }}</p>{% endif %}
     <h1 class="mt-1 text-4xl">{{ service.name }}</h1>
-    <p class="price mt-3 text-3xl">{{ price(service.price) }}</p>
-    <p class="muted mt-1">Durée : {{ service.base_duration_min }} min</p>
+    <p class="price mt-3 text-3xl">{{ service_price(service) }}</p>
+    <p class="muted mt-1">Durée de base : {{ service.base_duration_min | fr_duration }} (la durée exacte dépend de la coiffeuse)</p>
+    <a href="/bookings/new/{{ service.id }}" class="btn-gold mt-5 w-full">Réserver cette prestation</a>
     {% if service.description %}<p class="desc mt-6 text-base">{{ service.description }}</p>{% endif %}
     <div class="panel mt-6 !p-4 text-sm text-muted">Paiement au salon (Cash / Interac).</div>
   </aside>

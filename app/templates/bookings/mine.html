@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Mes rendez-vous — KYJA BEAUTÉ{% endblock %}
+{% block content %}
+{% macro row(a) %}
+<li><a href="/bookings/{{ a.id }}" class="panel flex flex-wrap items-center justify-between gap-3 !p-4 hover:border-gold-400">
+  <span><strong class="font-display text-xl font-semibold">{{ a.service.name }}</strong><br>
+    <span class="muted">{{ a.starts_at | fr_date }} · {{ a.starts_at | fr_time }} → {{ a.ends_at | fr_time }} · avec {{ a.hairdresser.user.full_name }}</span></span>
+  <span class="status status-{{ a.status.value }}">{{ {'confirmed': 'Confirmé', 'completed': 'Terminé', 'cancelled': 'Annulé'}[a.status.value] }}</span>
+</a></li>
+{% endmacro %}
+<header class="mb-8 flex flex-wrap items-end justify-between gap-4">
+  <h1>Mes rendez-vous</h1>
+  <a href="/bookings/new" class="btn-gold btn-sm">Nouvelle réservation</a>
+</header>
+<h2 class="mb-3">À venir</h2>
+<ul class="mb-10 flex list-none flex-col gap-3 p-0">
+  {% for a in upcoming %}{{ row(a) }}{% else %}<li class="muted">Aucun rendez-vous à venir.</li>{% endfor %}
+</ul>
+{% if past %}
+<h2 class="mb-3">Historique</h2>
+<ul class="flex list-none flex-col gap-3 p-0">{% for a in past %}{{ row(a) }}{% endfor %}</ul>
+{% endif %}
+{% endblock %}

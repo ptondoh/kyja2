@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Coiffeuses — Admin{% endblock %}
+{% block content %}
+<a href="/admin" class="link-gold text-sm">← Administration</a>
+<h1 class="mb-6 mt-4">Coiffeuses</h1>
+<div class="grid gap-8 lg:grid-cols-[1fr_24rem]">
+  <div class="panel overflow-x-auto !p-2">
+    <table class="admin-table"><thead><tr><th>Nom</th><th>Email</th><th>Coefficient</th><th>Plages</th><th>Active</th></tr></thead><tbody>
+    {% for h in items %}<tr>
+      <td><a class="link-gold" href="/admin/hairdressers/{{ h.id }}">{{ h.user.full_name }}</a></td>
+      <td>{{ h.user.email }}</td><td>× {{ h.duration_coefficient }}</td><td>{{ h.slots | length }}</td><td>{{ 'oui' if h.is_active else 'non' }}</td>
+    </tr>{% else %}<tr><td colspan="5" class="muted">Aucune coiffeuse. Créez la première →</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+  <div class="panel">
+    <h2 class="mb-4">Nouvelle coiffeuse</h2>
+    {% if errors %}<div class="error mb-4" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+    <form method="post" action="/admin/hairdressers" class="card">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Nom complet <input type="text" name="full_name" required maxlength="200" value="{{ form.full_name if form }}"></label>
+      <label>Email <input type="email" name="email" required value="{{ form.email if form }}" autocomplete="off"></label>
+      <label>Mot de passe provisoire <span class="muted">12 caractères minimum</span>
+        <input type="password" name="password" required minlength="12" maxlength="128" autocomplete="new-password"></label>
+      <label>Coefficient de durée <span class="muted">1,00 = standard · 1,30 = 30 % plus lente · 0,85 = plus rapide</span>
+        <input type="text" name="coefficient" inputmode="decimal" required value="{{ form.coefficient if form else '1.00' }}"></label>
+      <button type="submit" class="btn-gold">Créer</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
