@@ -1,10 +1,12 @@
 """Administration de la réservation : coiffeuses, horaires, équipements, rendez-vous, prix final."""
 import re
+import secrets
+from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth.deps import require_role
@@ -18,6 +20,7 @@ from app.db.models.core import (
     Hairdresser,
     Resource,
     Role,
+    Service,
     User,
 )
 from app.security_middleware import verify_csrf
@@ -287,3 +290,95 @@ def appointment_cancel(appointment_id: int, db: Session = Depends(get_db)):
     except BookingError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
     return _redirect("/admin/appointments")
+
+
+# --- Rendez-vous saisi par le salon (cliente qui réserve par téléphone) ----------------------------------
+
+
+def _new_appointment_context(db: Session, **extra) -> dict:
+    services = db.scalars(select(Service).where(Service.is_active.is_(True)).order_by(Service.is_custom_request, Service.name)).all()
+    return {"services": services, "hairdressers": engine.active_hairdressers(db), **extra}
+
+
+@router.get("/appointments/new")
+def appointment_new_page(
+    request: Request, db: Session = Depends(get_db), user: User = Depends(require_role(Role.admin))
+):
+    return render(request, "admin/appointment_new.html", current_user=user, **_new_appointment_context(db))
+
+
+@router.post("/appointments/new")
+def appointment_new(
+    request: Request,
+    full_name: str = Form(""),
+    phone: str = Form(""),
+    email: str = Form(""),
+    service_id: int = Form(...),
+    hairdresser: str = Form("any"),
+    day: str = Form(""),
+    time: str = Form(""),
+    notes: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(Role.admin)),
+):
+    form = {"full_name": full_name, "phone": phone, "email": email, "service_id": service_id,
+            "hairdresser": hairdresser, "day": day, "time": time, "notes": notes}  # fmt: skip
+
+    def fail(*messages: str):
+        return render(
+            request, "admin/appointment_new.html", status_code=400, current_user=user,
+            errors=list(messages), form=form, **_new_appointment_context(db),
+        )  # fmt: skip
+
+    full_name, phone, email = full_name.strip(), phone.strip(), email.strip().lower()
+    service = db.get(Service, service_id)
+    if not service or not service.is_active:
+        return fail("Prestation invalide.")
+    if email and not EMAIL_RE.match(email):
+        return fail("Adresse email invalide.")
+    existing = db.scalar(select(User).where(User.email == email)) if email else None
+    if not existing and (not full_name or len(full_name) > 200):
+        return fail("Le nom de la cliente est requis.")
+    if not existing and not (phone or email):
+        return fail("Indiquez au moins un téléphone ou un email pour pouvoir joindre la cliente.")
+    if phone and not re.fullmatch(r"[0-9 ()+.\-]{5,30}", phone):
+        return fail("Téléphone invalide.")
+    try:
+        the_day = date.fromisoformat(day)
+    except ValueError:
+        return fail("Date invalide.")
+    minutes = _minutes(time)
+    if minutes is None:
+        return fail("Heure invalide (format HH:MM).")
+    start = datetime(the_day.year, the_day.month, the_day.day, minutes // 60, minutes % 60,
+                     tzinfo=engine.salon_tz()).astimezone(timezone.utc)  # fmt: skip
+    choice = None if hairdresser == "any" else (int(hairdresser) if hairdresser.isdigit() else -1)
+    if choice == -1:
+        return fail("Coiffeuse invalide.")
+
+    client = existing
+    if client is None:
+        # Cliente sans compte (réservation par téléphone) : fiche créée par le salon, sans mot de passe utilisable.
+        client = User(
+            email=email or f"tel-{secrets.token_hex(8)}@sans-courriel.kyja",
+            password_hash=hash_password(secrets.token_urlsafe(32)),
+            role=Role.client,
+            full_name=full_name,
+            phone=phone or None,
+        )
+        db.add(client)
+        db.flush()
+    try:
+        appt = engine.create_booking(
+            db, client=client, service=service, hairdresser_id=choice, start=start,
+            notes=notes.strip()[:2000] or None, admin_override=True,
+        )  # fmt: skip
+    except BookingError as exc:
+        # create_booking valide la transaction avant de poser ses verrous : la fiche créée plus haut a donc
+        # déjà été enregistrée. On la retire pour ne pas laisser de cliente orpheline.
+        db.rollback()
+        if existing is None:
+            db.execute(delete(User).where(User.id == client.id))
+            db.commit()
+        return fail(str(exc))
+    return _redirect(f"/admin/appointments?created={appt.id}")

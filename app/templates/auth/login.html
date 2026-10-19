@@ -17,6 +17,7 @@
       <button type="submit" class="btn-gold w-full">Se connecter</button>
     </form>
   </div>
+  {% if salon_phone() %}<p class="mt-6 text-center text-sm text-muted">Vous préférez réserver par téléphone ? Appelez le <strong class="font-medium text-ink">{{ salon_phone() }}</strong>.</p>{% endif %}
   <p class="mt-6 text-center text-sm text-muted">Pas encore de compte ? <a href="/auth/register{{ '?next=' ~ (next | urlencode) if next and next != '/' else '' }}" class="link-gold">Créer un compte</a></p>
 </div>
 {% endblock %}

@@ -18,6 +18,7 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import expression
 
@@ -283,9 +284,15 @@ class BookingPhoto(Base):
     """
 
     __tablename__ = "booking_photos"
+    __table_args__ = (
+        CheckConstraint("client_id IS NOT NULL OR draft_token_hash IS NOT NULL", name="booking_photo_owner"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    client_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    # Propriétaire : une cliente connectée (client_id) OU une visiteuse pas encore connectée
+    # (draft_token_hash = empreinte du jeton de son cookie). Rattachée à la cliente à sa connexion.
+    client_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    draft_token_hash: Mapped[str | None] = mapped_column(String(64), index=True)
     appointment_id: Mapped[int | None] = mapped_column(
         ForeignKey("appointments.id", ondelete="CASCADE"), index=True
     )
@@ -296,6 +303,18 @@ class BookingPhoto(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     appointment: Mapped[Appointment | None] = relationship(back_populates="photos")
+
+
+class BookingDraft(Base):
+    """Choix en cours d'une visiteuse (prestation, coiffeuse, créneau, description) pendant qu'elle
+    se connecte ou crée son compte. Retrouvé grâce à un cookie ; effacé après 24 h ou à la confirmation."""
+
+    __tablename__ = "booking_drafts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    payload: Mapped[dict] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class AppointmentResource(Base):

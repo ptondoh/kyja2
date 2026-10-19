@@ -58,8 +58,8 @@ def test_custom_mode_goes_straight_to_the_form_on_a_fresh_install(client):
     """Cas réel d'une installation neuve : aucune prestation « sur devis » n'existe."""
     r = client.get("/bookings/new?mode=custom")
     assert r.status_code == 303 and r.headers["location"] == f"/bookings/new/{builtin_id()}"
-    r = client.get(r.headers["location"])
-    assert r.status_code == 303 and "/auth/login?next=" in r.headers["location"]  # connexion puis retour
+    page = client.get(r.headers["location"])
+    assert page.status_code == 200 and 'name="notes"' in page.text  # public : pas de connexion avant la confirmation
 
 
 def test_custom_form_has_description_photos_and_calendar(client):
@@ -138,10 +138,9 @@ def test_full_custom_booking_on_builtin_service(client):
 # --- calendrier -----------------------------------------------------------------------------------------
 
 
-def test_calendar_requires_login_and_valid_hairdresser(client):
+def test_calendar_is_public_and_validates_input(client):
     bid = builtin_id()
-    assert client.get(f"/bookings/calendar?service_id={bid}").status_code == 401
-    register(client)
+    assert client.get(f"/bookings/calendar?service_id={bid}").status_code == 200  # sans compte
     assert client.get(f"/bookings/calendar?service_id={bid}&hairdresser=abc").status_code == 400
     assert client.get("/bookings/calendar?service_id=999999").status_code == 404
 

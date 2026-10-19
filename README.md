@@ -35,6 +35,11 @@ Polices (Cormorant Garamond, Jost) hébergées dans `app/static/fonts/` : la CSP
 
 ## Tests
 
+Les tests tournent sur une base **séparée `kyja_test`** (créée une fois : `CREATE DATABASE kyja_test OWNER kyja;`),
+avec leurs propres dossiers de fichiers : ils ne touchent jamais à vos données de développement.
+Le schéma de test se met à jour tout seul (migrations Alembic). `TEST_DATABASE_URL` permet d'en choisir une autre
+(son nom doit finir par `_test`).
+
 ```
 pytest                 # unitaires + intégration + e2e (Playwright, Edge)
 python scripts/security_check.py   # bandit + pip-audit

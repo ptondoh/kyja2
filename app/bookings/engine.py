@@ -264,6 +264,7 @@ def create_booking(
     notes: str | None = None,
     photo_ids: list[int] | None = None,
     now: datetime | None = None,
+    admin_override: bool = False,
 ) -> Appointment:
     """Crée le rendez-vous. Prix, durée et coefficient sont **recalculés ici** : le formulaire n'est jamais cru."""
     now = now or utcnow()
@@ -274,6 +275,8 @@ def create_booking(
     start = start.astimezone(timezone.utc)
     step = get_int_setting(db, "calendar_step_min")
     earliest, latest = _bounds(db, now)
+    if admin_override:  # réservation saisie par le salon (téléphone) : pas de délai minimal
+        earliest = now
     if start < earliest:
         raise SlotUnavailable("Ce créneau est trop proche ou déjà passé.")
     if start > latest:

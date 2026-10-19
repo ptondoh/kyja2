@@ -344,6 +344,22 @@ Lecture → GET /bookings/photos/{id} : cliente propriétaire, admin, ou coiffeu
 * **Cycle de vie :** brouillons non utilisés purgés après 24 h (à chaque envoi, puis par une tâche Celery planifiée) ; suppression des fichiers lors du droit à l'oubli et de la suppression d'un rendez-vous.
 * **CSP :** `img-src` autorise `blob:` pour les aperçus ; le script (`/static/js/booking-photos.js`) est servi depuis le site, sans JavaScript en ligne.
 
+### Réservation sans connexion préalable
+
+```
+Parcours public : /bookings/new, /bookings/new/{id}, /bookings/calendar, /bookings/slots, POST /bookings/review, photos
+Visiteuse → cookie `booking_draft` (HttpOnly, SameSite=Lax, Path=/bookings, 24 h) = jeton aléatoire ; seule son empreinte SHA-256 est en base
+         → booking_drafts(token_hash, payload JSONB) garde le choix ; booking_photos.draft_token_hash garde les photos envoyées sans compte
+Récapitulatif visiteuse → « Dernière étape » (Créer mon compte / J'ai déjà un compte) avec ?next=/bookings/resume
+Connexion ou inscription → GET /bookings/resume : photos rattachées au compte (claim), choix revalidé (créneau encore libre ?), bouton Confirmer
+Confirmation → brouillon et cookie supprimés ; session expirée au moment de confirmer → choix gardé, retour par /bookings/resume
+```
+
+* **Garde-fous des routes publiques :** consultation du calendrier/des heures plafonnée par IP (600/h) ; envois de photos des visiteuses plafonnés par jeton (60/h) **et** par IP (30/h) ; photos non rattachées purgées après 24 h ; CSRF exigé partout (jeton dans le formulaire ou en-tête).
+* **Confidentialité :** une photo envoyée sans compte n'est lisible que par le porteur du cookie correspondant (et l'admin) ; un autre visiteur ou une autre cliente reçoit 404 ; `claim_photos` ne rattache que les photos portant le jeton de la requête.
+* **Repli téléphone :** réglage `salon_phone` (admin), affiché si renseigné. L'admin crée un rendez-vous pour une cliente sans compte (`/admin/appointments/new`) : fiche cliente sans mot de passe utilisable (`tel-…@sans-courriel.kyja`), `create_booking(admin_override=True)` ignore seulement le délai minimal ; conflits, horaires et équipements restent contrôlés.
+* **Évolution prévue :** réservation « invitée » (email vérifié + lien sécurisé) ou connexion par lien magique, dès que l'envoi d'emails (Celery + Resend) est installé. Le module `drafts.py` isole ce mécanisme pour faciliter ce changement.
+
 ### Calendrier mensuel (HTMX)
 
 ```

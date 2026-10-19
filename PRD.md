@@ -56,13 +56,16 @@ Concevoir une plateforme numérique robuste et élégante pour le salon **KYJA B
 | Informations demandées | Coiffure, coiffeuse (ou « peu importe »), date, créneau | Idem, plus une **zone de texte pour décrire la demande** (obligatoire) et **jusqu'à 10 photos d'inspiration** (facultatives) |
 | Durée | Calculée (voir ci-dessous) | Calculée (voir ci-dessous), à partir de la durée de base de la prestation sur devis |
 
+#### Compte et connexion : au dernier moment
+Tout le parcours (choix, calendrier, heures, description, photos) est **public** : la cliente n'a pas besoin de compte pour explorer ni préparer sa réservation. Le **compte est demandé uniquement à la confirmation** (« Dernière étape : votre compte ») : il sert à retrouver, modifier ou annuler le rendez-vous et à protéger les photos. Le choix de la cliente (prestation, coiffeuse, créneau, description, photos) est **conservé** pendant qu'elle se connecte ou crée son compte, puis elle revient directement au récapitulatif. Si la cliente ne veut pas de compte, elle peut **réserver par téléphone** : le numéro du salon (réglable par l'admin) est affiché sur la page de connexion, le récapitulatif et le pied de page, et l'admin peut **saisir le rendez-vous à la main** dans le même calendrier. *(Décision provisoire : une réservation « invitée » sans mot de passe est envisagée une fois l'envoi d'emails en place.)*
+
 #### Parcours de réservation (identique pour les deux modes après l'étape 1)
 1. **Choix de départ** : coiffure du catalogue (mode 1) ou demande sur mesure (mode 2).
 2. **Choix de la coiffeuse** : une coiffeuse précise ou « peu importe » (le système assigne la première disponible).
 3. **Durée calculée** : affichée à la cliente **par coiffeuse** (ex: « 2 h 15 avec Marie, 1 h 50 avec Sonia »), car le coefficient diffère.
 4. **Choix du jour puis de l'heure** : un **calendrier mensuel** met en évidence les jours où au moins un créneau est libre (les autres sont grisés, navigation de mois en mois dans la limite de l'horizon de réservation) ; en cliquant un jour, la cliente voit les **heures précises** où la durée **complète** tient. Changer de coiffeuse met à jour les jours disponibles.
 5. **Récapitulatif** : coiffure, coiffeuse, date, heure de début et de fin, durée, prix **estimatif** (ou « à confirmer »), mention « Paiement au salon (Cash/Interac) ».
-6. **Confirmation** : transaction atomique (voir Gestion des Conflits) puis email de confirmation.
+6. **Confirmation** : connexion ou création de compte si ce n'est pas déjà fait, puis transaction atomique (voir Gestion des Conflits) et email de confirmation.
 
 #### Règles
 * **Calcul du temps :** $$\text{Durée} = (\text{Temps Prestation} \times \text{Coeff. Coiffeuse}) + \text{Buffer Time}$$[cite: 1]. Durée arrondie au pas du calendrier (ex: 15 min). Le calcul s'applique **à tous les modes**.

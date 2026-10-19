@@ -10,6 +10,7 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "calendar_step_min": "15",  # pas du calendrier et arrondi des durées
     "booking_horizon_days": "60",  # jusqu'à quand on peut réserver
     "booking_min_notice_min": "60",  # délai minimal avant le début d'un rendez-vous
+    "salon_phone": "",  # affiché sur le site si renseigné (réservation par téléphone)
 }
 
 

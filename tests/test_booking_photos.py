@@ -10,6 +10,7 @@ from PIL import Image
 from sqlalchemy import delete, select, update
 
 from app.bookings import photos
+from app.bookings.drafts import Owner
 from app.config import get_settings
 from app.db.base import SessionLocal
 from app.db.models.core import Appointment, BookingPhoto, PricingMode, User
@@ -64,12 +65,13 @@ def all_photos():
 # --- envoi ------------------------------------------------------------------------------------
 
 
-def test_upload_requires_login_and_csrf(client):
-    assert up(client, png()).status_code == 401
-    register(client)
-    assert up(client, png(), with_csrf=False).status_code == 403
-    r = up(client, png())
+def test_upload_requires_csrf_and_works_without_login(client):
+    assert up(client, png(), with_csrf=False).status_code == 403  # jamais sans jeton CSRF
+    r = up(client, png())  # visiteuse non connectée : autorisé, rattaché à son jeton de cookie
     assert r.status_code == 200 and r.json()["url"] == f"/bookings/photos/{r.json()['id']}"
+    assert "booking_draft" in r.headers["set-cookie"]
+    register(client)
+    assert up(client, png()).status_code == 200  # et connectée
 
 
 def test_upload_is_stored_privately_and_never_public(client):
@@ -150,7 +152,7 @@ def test_only_owner_and_admin_see_a_draft_photo(client):
     other = other_client()
     register(other, email="b@test.kyja")
     assert other.get(f"/bookings/photos/{pid}").status_code == 404
-    assert other_client().get(f"/bookings/photos/{pid}").status_code == 401
+    assert other_client().get(f"/bookings/photos/{pid}").status_code == 404  # visiteuse : rien n'est révélé
     admin = other_client()
     make_admin(admin)
     assert admin.get(f"/bookings/photos/{pid}").status_code == 200
@@ -239,7 +241,7 @@ def test_review_confirm_attaches_photos_and_detail_shows_them(client, setup):
     assert "Photos d'inspiration (3)" in detail and all(f"/bookings/photos/{i}" in detail for i in ids)
     with SessionLocal() as db:
         appt = db.scalar(select(Appointment))
-        assert sorted(p.id for p in appt.photos) == sorted(ids) and photos.drafts(db, appt.client_id) == []
+        assert sorted(p.id for p in appt.photos) == sorted(ids) and photos.drafts(db, Owner(user_id=appt.client_id)) == []
     other = other_client()
     register(other, email="b@test.kyja")
     assert other.get(r.headers["location"].split("?")[0]).status_code == 404

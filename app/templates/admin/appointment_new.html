@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Nouveau rendez-vous — Admin{% endblock %}
+{% block content %}
+<a href="/admin/appointments" class="link-gold text-sm">← Rendez-vous</a>
+<h1 class="mb-2 mt-4">Nouveau rendez-vous</h1>
+<p class="muted mb-6">Pour une cliente qui réserve par téléphone. La durée est calculée comme pour une réservation en ligne ; les conflits de coiffeuse et d'équipement sont vérifiés.</p>
+{% if errors %}<div class="error mb-5" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+<form method="post" action="/admin/appointments/new" class="card panel max-w-2xl">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <h2 class="text-xl">La cliente</h2>
+  <label>Nom complet <input type="text" name="full_name" maxlength="200" value="{{ form.full_name if form }}" autocomplete="off"></label>
+  <div class="grid gap-4 sm:grid-cols-2">
+    <label>Téléphone <input type="tel" name="phone" maxlength="30" value="{{ form.phone if form }}" autocomplete="off"></label>
+    <label>Email <span class="muted">facultatif ; si elle a déjà un compte, il est utilisé</span><input type="email" name="email" value="{{ form.email if form }}" autocomplete="off"></label>
+  </div>
+  <h2 class="mt-2 text-xl">Le rendez-vous</h2>
+  <label>Prestation
+    <select name="service_id" required>{% for s in services %}<option value="{{ s.id }}" {% if form and form.service_id == s.id %}selected{% endif %}>{{ s.name }}{% if s.is_custom_request %} (sur mesure){% endif %}</option>{% endfor %}</select></label>
+  <label>Coiffeuse
+    <select name="hairdresser"><option value="any">Peu importe (première disponible)</option>
+      {% for h in hairdressers %}<option value="{{ h.id }}" {% if form and form.hairdresser == h.id | string %}selected{% endif %}>{{ h.user.full_name }} (× {{ h.duration_coefficient }})</option>{% endfor %}</select></label>
+  <div class="grid gap-4 sm:grid-cols-2">
+    <label>Date <input type="date" name="day" required value="{{ form.day if form }}"></label>
+    <label>Heure <span class="muted">HH:MM</span><input type="text" name="time" required placeholder="14:30" pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]" value="{{ form.time if form }}"></label>
+  </div>
+  <label>Notes <textarea name="notes" rows="3" maxlength="2000">{{ form.notes if form }}</textarea></label>
+  <button type="submit" class="btn-gold">Créer le rendez-vous</button>
+</form>
+{% endblock %}

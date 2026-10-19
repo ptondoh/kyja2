@@ -14,6 +14,8 @@
       <input type="number" name="calendar_step_min" min="5" max="60" required value="{{ calendar_step_min }}"></label>
     <label>Réservation possible jusqu'à (jours) <input type="number" name="booking_horizon_days" min="1" max="365" required value="{{ booking_horizon_days }}"></label>
     <label>Délai minimal avant un rendez-vous (minutes) <input type="number" name="booking_min_notice_min" min="0" max="10080" required value="{{ booking_min_notice_min }}"></label>
+    <label>Téléphone du salon <span class="muted">affiché pour les clientes qui préfèrent réserver par téléphone (laisser vide pour ne rien afficher)</span>
+      <input type="tel" name="salon_phone" maxlength="30" value="{{ salon_phone_value or '' }}" placeholder="514 555-0123"></label>
     <h3 class="mt-4 text-xl">Vidéos téléversées</h3>
     <label>Taille maximale d'une vidéo (Mo) <input type="number" name="video_max_mb" min="1" max="2000" required value="{{ video_max_mb }}"></label>
     <label>Durée maximale d'une vidéo (secondes) <input type="number" name="video_max_seconds" min="10" max="3600" required value="{{ video_max_seconds }}"></label>

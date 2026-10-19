@@ -2,7 +2,11 @@
 {% block title %}Rendez-vous — Admin{% endblock %}
 {% block content %}
 <a href="/admin" class="link-gold text-sm">← Administration</a>
-<h1 class="mb-6 mt-4">Rendez-vous</h1>
+<div class="mb-6 mt-4 flex flex-wrap items-center justify-between gap-4">
+  <h1>Rendez-vous</h1>
+  <a href="/admin/appointments/new" class="btn-gold btn-sm">+ Nouveau rendez-vous (téléphone)</a>
+</div>
+{% if request.query_params.get('created') %}<p class="ok mb-5" role="status">Rendez-vous créé.</p>{% endif %}
 <div class="panel overflow-x-auto !p-2">
 <table class="admin-table"><thead><tr><th>Date</th><th>Cliente</th><th>Coiffeuse</th><th>Prestation</th><th>Durée</th><th>Prix estimé</th><th>Prix final</th><th>Statut</th><th></th></tr></thead><tbody>
 {% for a in items %}<tr>

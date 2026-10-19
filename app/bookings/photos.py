@@ -1,7 +1,8 @@
 """Photos d'inspiration des demandes sur mesure (PRD 4.A, mode 2) : jusqu'à 10 par demande.
 
 Données personnelles : stockage privé, EXIF supprimé (géolocalisation des photos de téléphone),
-brouillons purgés après 24 h, accès réservé à la cliente, à l'admin et à la coiffeuse assignée.
+brouillons purgés après 24 h, accès réservé à la cliente (ou à la visiteuse qui les a envoyées
+avant de se connecter), à l'admin et à la coiffeuse assignée.
 """
 import io
 import uuid
@@ -14,6 +15,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.auth.ratelimit import RateLimiter
+from app.bookings.drafts import Owner
 from app.config import get_settings
 from app.db.models.core import Appointment, BookingPhoto, Hairdresser, Role, User
 from app.media.storage import get_private_storage
@@ -24,19 +26,29 @@ MAX_SIDE = 1600
 CHUNK = 1024 * 1024
 DRAFT_TTL = timedelta(hours=24)
 
-# 60 envois par heure et par cliente : évite qu'un compte remplisse le stockage.
+# 60 envois par heure et par propriétaire : évite qu'un compte (ou un jeton) remplisse le stockage.
 upload_limiter = RateLimiter(max_hits=60, window_seconds=3600)
+# Visiteuses non connectées : en plus, plafond par adresse IP.
+anon_ip_limiter = RateLimiter(max_hits=30, window_seconds=3600)
 
 
 class PhotoRejected(ValueError):
     """Photo refusée ; le message est affichable à la cliente."""
 
 
-def drafts(db: Session, user_id: int) -> list[BookingPhoto]:
+def _owned_by(owner: Owner):
+    if owner.user_id:
+        return BookingPhoto.client_id == owner.user_id
+    return BookingPhoto.draft_token_hash == owner.token_hash
+
+
+def drafts(db: Session, owner: Owner | None) -> list[BookingPhoto]:
+    if owner is None:
+        return []
     return list(
         db.scalars(
             select(BookingPhoto)
-            .where(BookingPhoto.client_id == user_id, BookingPhoto.appointment_id.is_(None))
+            .where(_owned_by(owner), BookingPhoto.appointment_id.is_(None))
             .order_by(BookingPhoto.id)
         )
     )
@@ -53,15 +65,18 @@ def _read_capped(file: UploadFile, max_bytes: int) -> bytes:
     return bytes(buf)
 
 
-def add_draft(db: Session, user: User, file: UploadFile, now: datetime | None = None) -> BookingPhoto:
+def add_draft(
+    db: Session, owner: Owner, file: UploadFile, now: datetime | None = None, ip: str | None = None
+) -> BookingPhoto:
     """Valide, nettoie et enregistre une photo en brouillon. Lève PhotoRejected si refusée."""
-    key = f"user:{user.id}"
-    if upload_limiter.is_limited(key):
+    if upload_limiter.is_limited(owner.key) or (ip and not owner.user_id and anon_ip_limiter.is_limited(ip)):
         raise PhotoRejected("Trop de photos envoyées. Réessayez plus tard.")
     purge_stale(db, now)
-    if len(drafts(db, user.id)) >= MAX_PHOTOS:
+    if len(drafts(db, owner)) >= MAX_PHOTOS:
         raise PhotoRejected(f"Maximum {MAX_PHOTOS} photos par demande.")
-    upload_limiter.hit(key)
+    upload_limiter.hit(owner.key)
+    if ip and not owner.user_id:
+        anon_ip_limiter.hit(ip)
 
     raw = _read_capped(file, get_settings().image_max_mb * 2**20)
     if magic.from_buffer(raw[:4096], mime=True) not in ALLOWED_MIMES:  # contenu réel, jamais l'extension
@@ -78,9 +93,13 @@ def add_draft(db: Session, user: User, file: UploadFile, now: datetime | None = 
         raise PhotoRejected("Image illisible ou corrompue.") from None
 
     data = out.getvalue()
-    storage_key = f"booking-photos/{user.id}/{uuid.uuid4().hex}.webp"
+    folder = f"u{owner.user_id}" if owner.user_id else "anon"
+    storage_key = f"booking-photos/{folder}/{uuid.uuid4().hex}.webp"
     get_private_storage().save(data, storage_key)
-    photo = BookingPhoto(client_id=user.id, storage_key=storage_key, width=width, height=height, size_bytes=len(data))
+    photo = BookingPhoto(
+        client_id=owner.user_id, draft_token_hash=owner.token_hash,
+        storage_key=storage_key, width=width, height=height, size_bytes=len(data),
+    )  # fmt: skip
     db.add(photo)
     db.commit()
     return photo
@@ -107,9 +126,13 @@ def purge_stale(db: Session, now: datetime | None = None) -> int:
     return len(stale)
 
 
-def can_view(db: Session, user: User, photo: BookingPhoto) -> bool:
-    """La cliente propriétaire, l'admin, ou la coiffeuse assignée au rendez-vous."""
-    if photo.client_id == user.id or user.role == Role.admin:
+def can_view(db: Session, user: User | None, token_hash: str | None, photo: BookingPhoto) -> bool:
+    """Propriétaire (cliente, ou visiteuse porteuse du jeton), admin, ou coiffeuse assignée au rendez-vous."""
+    if token_hash and photo.draft_token_hash and photo.draft_token_hash == token_hash:
+        return True
+    if user is None:
+        return False
+    if (photo.client_id and photo.client_id == user.id) or user.role == Role.admin:
         return True
     if user.role == Role.hairdresser and photo.appointment_id:
         appt = db.get(Appointment, photo.appointment_id)
@@ -118,16 +141,26 @@ def can_view(db: Session, user: User, photo: BookingPhoto) -> bool:
     return False
 
 
-def load_for_booking(db: Session, user: User, ids: list[int]) -> list[BookingPhoto]:
-    """Brouillons de la cliente correspondant aux identifiants reçus (ceux d'autrui sont ignorés)."""
+def is_owner(photo: BookingPhoto, owner: Owner | None) -> bool:
+    if owner is None:
+        return False
+    if owner.user_id:
+        return photo.client_id == owner.user_id
+    return bool(owner.token_hash and photo.draft_token_hash == owner.token_hash)
+
+
+def load_for_booking(db: Session, owner: Owner | None, ids: list[int]) -> list[BookingPhoto]:
+    """Brouillons du propriétaire correspondant aux identifiants reçus (ceux d'autrui sont refusés)."""
     if not ids:
         return []
     if len(ids) > MAX_PHOTOS:
         raise PhotoRejected(f"Maximum {MAX_PHOTOS} photos par demande.")
+    if owner is None:
+        raise PhotoRejected("Une des photos n'est plus disponible. Merci de la renvoyer.")
     found = db.scalars(
-        select(BookingPhoto).where(
-            BookingPhoto.id.in_(ids), BookingPhoto.client_id == user.id, BookingPhoto.appointment_id.is_(None)
-        ).order_by(BookingPhoto.id)
+        select(BookingPhoto)
+        .where(BookingPhoto.id.in_(ids), _owned_by(owner), BookingPhoto.appointment_id.is_(None))
+        .order_by(BookingPhoto.id)
     ).all()
     if len(found) != len(set(ids)):
         raise PhotoRejected("Une des photos n'est plus disponible. Merci de la renvoyer.")

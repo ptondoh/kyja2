@@ -6,6 +6,7 @@ from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
 from app.bookings.engine import salon_tz
+from app.salon import salon_phone
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
@@ -42,6 +43,7 @@ def money(value: Decimal | None) -> str:
 
 templates.env.filters.update(fr_date=fr_date, fr_month=fr_month, fr_time=fr_time, fr_duration=fr_duration, money=money)
 templates.env.globals["weekdays"] = _JOURS
+templates.env.globals["salon_phone"] = salon_phone
 
 
 def render(request: Request, name: str, status_code: int = 200, **context):

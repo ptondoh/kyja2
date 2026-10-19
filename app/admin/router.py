@@ -19,7 +19,8 @@ from app.auth.deps import require_role
 from app.config import get_settings
 from app.db.base import get_db
 from app.db.models.core import Media, PricingMode, Product, Role, Service, ServiceResource, User
-from app.db.models.settings import get_int_setting, set_setting
+from app.db.models.settings import get_int_setting, get_setting, set_setting
+from app.salon import reset_cache as reset_salon_cache
 from app.media import service as media_service
 from app.security_middleware import verify_csrf
 from app.templating import render
@@ -95,6 +96,7 @@ def settings_page(
         calendar_step_min=get_int_setting(db, "calendar_step_min"),
         booking_horizon_days=get_int_setting(db, "booking_horizon_days"),
         booking_min_notice_min=get_int_setting(db, "booking_min_notice_min"),
+        salon_phone_value=get_setting(db, "salon_phone"),
     )
 
 
@@ -106,6 +108,7 @@ def settings_save(
     calendar_step_min: str = Form("15"),
     booking_horizon_days: str = Form("60"),
     booking_min_notice_min: str = Form("60"),
+    salon_phone: str = Form(""),
     db: Session = Depends(get_db),
     user: User = Depends(require_role(Role.admin)),
 ):
@@ -117,6 +120,9 @@ def settings_save(
         errors.append("Le pas du calendrier doit diviser 60 (5, 10, 15, 20, 30 ou 60).")
     horizon = _int(booking_horizon_days, "Réservation possible jusqu'à (jours)", 1, 365, errors)
     notice = _int(booking_min_notice_min, "Délai minimal avant un rendez-vous (min)", 0, 10080, errors)
+    phone = salon_phone.strip()
+    if not re.fullmatch(r"[0-9 ()+.\-]{0,30}", phone):
+        errors.append("Téléphone invalide (chiffres, espaces, + ( ) - . seulement, 30 caractères max).")
     if errors:
         return render(
             request,
@@ -129,12 +135,15 @@ def settings_save(
             calendar_step_min=calendar_step_min,
             booking_horizon_days=booking_horizon_days,
             booking_min_notice_min=booking_min_notice_min,
+            salon_phone_value=salon_phone,
         )
     set_setting(db, "video_max_mb", str(mb))
     set_setting(db, "video_max_seconds", str(sec))
     set_setting(db, "calendar_step_min", str(step))
     set_setting(db, "booking_horizon_days", str(horizon))
     set_setting(db, "booking_min_notice_min", str(notice))
+    set_setting(db, "salon_phone", phone)
+    reset_salon_cache()
     return _redirect("/admin/settings?saved=1")
 
 

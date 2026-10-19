@@ -55,7 +55,7 @@
         <img src="/static/img/logo-mark.png" alt="" width="40" height="32" class="h-10 w-auto" loading="lazy">
         <span class="font-display text-lg uppercase tracking-[0.25em] text-gold-300">Kyja Beauté</span>
       </a>
-      <p class="text-sm">Coiffure &amp; produits de beauté · Paiement au salon (Cash / Interac)</p>
+      <p class="text-sm">Coiffure &amp; produits de beauté · Paiement au salon (Cash / Interac){% if salon_phone() %}<br>Réservation par téléphone : <strong class="font-medium text-gold-300">{{ salon_phone() }}</strong>{% endif %}</p>
       <nav class="flex gap-6 text-sm" aria-label="Pied de page">
         <a href="/services" class="hover:text-gold-300">Prestations</a>
         <a href="/products" class="hover:text-gold-300">Produits</a>

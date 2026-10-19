@@ -32,10 +32,11 @@ def sign_in(page, creds):
     page.click("button[type=submit]")
 
 
-def test_catalog_booking_flow_with_login_redirect(page, shot, salon):
+def test_visitor_books_then_signs_up_at_the_end(page, shot, salon):
+    """Tout le parcours est public ; le compte n'est demandé qu'à la confirmation, et le choix est conservé."""
     day = next_weekday(0).isoformat()
 
-    # 1. choix du mode puis de la coiffure
+    # 1. visiteuse (aucun compte, aucune connexion) : mode puis coiffure
     page.goto("/")
     page.click("header >> text=Réserver")
     expect(page.locator("h1")).to_have_text("Comment souhaitez-vous réserver ?")
@@ -43,18 +44,14 @@ def test_catalog_booking_flow_with_login_redirect(page, shot, salon):
     page.click("text=Choisir une coiffure")
     page.locator(".tile", has_text="TEST Brushing").click()
 
-    # 2. non connectée : redirection vers la connexion, puis retour automatique sur la page demandée
-    expect(page).to_have_url(re.compile(r"/auth/login\?next="))
-    sign_in(page, CLIENT)
+    # 2. PAS de redirection vers la connexion : la durée par coiffeuse et le calendrier sont visibles
     expect(page).to_have_url(re.compile(r"/bookings/new/\d+$"))
-
-    # 3. la durée calculée est affichée par coiffeuse
     marie = page.locator(".choice", has_text="Marie")
     sonia = page.locator(".choice", has_text="Sonia")
     expect(marie).to_contain_text("1 h 40")
     expect(sonia).to_contain_text("1 h 10")
 
-    # 4. les créneaux se chargent dynamiquement (HTMX) et dépendent de la coiffeuse choisie
+    # 3. les jours et heures se chargent dynamiquement (HTMX) selon la coiffeuse choisie
     choose_hairdresser(page, marie)
     pick_day(page, day)
     expect(page.locator("#slots .slot").first).to_be_visible()
@@ -75,7 +72,7 @@ def test_catalog_booking_flow_with_login_redirect(page, shot, salon):
     shot("22-reservation-choix")
     page.click("text=Voir le récapitulatif")
 
-    # 5. récapitulatif : durée calculée, prix estimatif, paiement au salon
+    # 4. récapitulatif complet, mais confirmation impossible sans compte : invitation à la dernière étape
     expect(page.locator("h1")).to_have_text("Récapitulatif")
     recap = page.locator(".recap")
     expect(recap).to_contain_text("Marie")
@@ -83,8 +80,25 @@ def test_catalog_booking_flow_with_login_redirect(page, shot, salon):
     expect(recap).to_contain_text("1 h 40")
     expect(recap).to_contain_text("55.00 $ CAD")
     expect(recap).to_contain_text("estimation")
+    expect(page.locator("#login-wall")).to_contain_text("Dernière étape")
+    expect(page.locator("text=Confirmer la réservation")).to_have_count(0)
+    shot("23-reservation-recap-visiteuse")
+
+    # 5. création du compte : retour AUTOMATIQUE au récapitulatif, choix conservé
+    page.click("#login-wall >> text=Créer mon compte")
+    expect(page).to_have_url(re.compile(r"/auth/register\?next="))
+    page.fill("input[name=full_name]", "Nouvelle Cliente")
+    page.fill("input[name=email]", "nouvelle-cliente@test.kyja")
+    page.fill("input[name=password]", "un mot de passe solide")
+    page.check("input[name=accept_terms]")
+    page.click("button[type=submit]")
+    expect(page).to_have_url(re.compile(r"/bookings/resume$"))
+    expect(page.locator("[role=status]")).to_contain_text("Bon retour")
+    recap = page.locator(".recap")
+    expect(recap).to_contain_text("Marie")
+    expect(recap).to_contain_text("10 h → 11 h 40")
     expect(recap).to_contain_text("Au salon (Cash / Interac)")
-    shot("23-reservation-recap")
+    shot("23b-reservation-reprise")
 
     # 6. confirmation
     page.click("text=Confirmer la réservation")

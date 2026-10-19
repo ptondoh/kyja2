@@ -1,3 +1,23 @@
+"""Configuration des tests.
+
+ISOLATION : les tests n'utilisent JAMAIS la base de développement. Ils tournent sur `kyja_test`
+(TEST_DATABASE_URL pour en changer) avec leurs propres dossiers de fichiers. Ainsi les données de
+démonstration ou de travail de la base `kyja` ne perturbent pas les tests, et inversement.
+Ces variables doivent être posées AVANT tout import de l'application.
+"""
+import os
+import shutil
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[1]
+_DEFAULT_TEST_DB = "postgresql+psycopg://kyja:kyja@localhost:5432/kyja_test"
+os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL", _DEFAULT_TEST_DB)
+assert os.environ["DATABASE_URL"].rsplit("/", 1)[-1].endswith("_test"), "les tests doivent viser une base *_test"
+_TEST_FILES = _ROOT / "tmp_uploads" / "test_files"
+os.environ["MEDIA_DIR"] = str(_TEST_FILES / "media")
+os.environ["PRIVATE_DIR"] = str(_TEST_FILES / "private")
+os.environ["UPLOAD_TMP_DIR"] = str(_TEST_FILES / "uploads")
+
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -7,13 +27,15 @@ from sqlalchemy import delete, or_, select
 
 from app.auth.ratelimit import login_limiter, register_limiter
 from app.auth.security import hash_password
-from app.bookings.photos import upload_limiter
+from app.bookings.photos import anon_ip_limiter, upload_limiter
+from app.bookings.router import browse_limiter
 from app.bookings.engine import salon_tz
 from app.db.base import SessionLocal
 from app.db.models.core import (
     Appointment,
     AppointmentResource,
     AvailabilitySlot,
+    BookingDraft,
     BookingPhoto,
     ConsentRecord,
     FinancialRecord,
@@ -30,10 +52,16 @@ from app.db.models.core import (
 )
 from app.db.models.settings import AppSetting
 from app.main import app
+from app.salon import reset_cache as reset_salon_cache
 from app.media.service import delete_media_files
 from app.media.storage import get_private_storage
 
 TEST_DOMAIN = "@test.kyja"
+WALK_IN_DOMAIN = "@sans-courriel.kyja"  # fiches créées par l'admin (réservation par téléphone)
+
+
+def _test_user_filter():
+    return or_(User.email.like(f"%{TEST_DOMAIN}"), User.email.like(f"%{WALK_IN_DOMAIN}"))
 
 
 def _purge(db) -> None:
@@ -45,17 +73,17 @@ def _purge(db) -> None:
                 delete_media_files(m)
             db.execute(delete(Media).where(col.in_(ids)))
 
-    uids = db.scalars(select(User.id).where(User.email.like(f"%{TEST_DOMAIN}"))).all()
+    uids = db.scalars(select(User.id).where(_test_user_filter())).all()
     hids = (
         db.scalars(select(Hairdresser.id).where(Hairdresser.user_id.in_(uids))).all() if uids else []
     )
     sids = db.scalars(select(Service.id).where(Service.name.like("TEST %"))).all()
-    # Photos privées des comptes de test : fichiers d'abord, lignes ensuite.
-    if uids:
-        storage = get_private_storage()
-        for ph in db.scalars(select(BookingPhoto).where(BookingPhoto.client_id.in_(uids))):
-            storage.delete(ph.storage_key)
-        db.execute(delete(BookingPhoto).where(BookingPhoto.client_id.in_(uids)))
+    # Photos privées (y compris celles envoyées sans connexion) et brouillons : base de test, on purge tout.
+    storage = get_private_storage()
+    for ph in db.scalars(select(BookingPhoto)):
+        storage.delete(ph.storage_key)
+    db.execute(delete(BookingPhoto))
+    db.execute(delete(BookingDraft))
     cond = []
     if uids:
         cond.append(Appointment.client_id.in_(uids))
@@ -85,11 +113,25 @@ def _purge(db) -> None:
         db.commit()
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _test_database():
+    """Met le schéma de la base de test à jour (migrations Alembic) avant le premier test."""
+    from alembic import command
+    from alembic.config import Config
+
+    command.upgrade(Config(str(_ROOT / "alembic.ini")), "head")
+    yield
+    shutil.rmtree(_TEST_FILES, ignore_errors=True)
+
+
 @pytest.fixture(autouse=True)
 def _clean():
     login_limiter.clear()
     register_limiter.clear()
     upload_limiter.clear()
+    anon_ip_limiter.clear()
+    browse_limiter.clear()
+    reset_salon_cache()
     yield
     with SessionLocal() as db:
         _purge(db)

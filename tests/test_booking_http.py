@@ -53,12 +53,15 @@ def book(c, setup, key="catalog", who="marie", hour=10, notes=""):
 # --- accès et redirection -------------------------------------------------------------------
 
 
-def test_booking_requires_login_and_returns_after(client, setup):
-    r = client.get(f"/bookings/new/{setup['catalog']}")
+def test_pick_page_is_public_and_confirmation_needs_login_then_returns(client, setup):
+    assert client.get(f"/bookings/new/{setup['catalog']}").status_code == 200  # aucune connexion avant la confirmation
+    # Confirmer sans être connectée (ex. session expirée) : le choix est gardé, retour prévu sur /bookings/resume.
+    start = local_start(next_weekday(0), 10)
+    r = client.post("/bookings", data={"service_id": setup["catalog"], "hairdresser": setup["marie"],
+                                       "start": start.isoformat(), "csrf_token": csrf(client)})  # fmt: skip
     assert r.status_code == 303
-    assert r.headers["location"] == f"/auth/login?next={quote('/bookings/new/' + str(setup['catalog']))}"
-    register(client)
-    assert client.get(f"/bookings/new/{setup['catalog']}").status_code == 200
+    assert r.headers["location"] == f"/auth/login?next={quote('/bookings/resume')}"
+    assert "booking_draft" in r.headers.get("set-cookie", "")
 
 
 def test_login_next_redirects_to_page_and_blocks_open_redirect(client):
@@ -75,9 +78,9 @@ def test_login_next_redirects_to_page_and_blocks_open_redirect(client):
         assert r.headers["location"] == "/", evil
 
 
-def test_slots_endpoint_requires_login(client, setup):
-    r = client.get(f"/bookings/slots?service_id={setup['catalog']}&hairdresser=any&day=2030-01-07")
-    assert r.status_code == 401
+def test_slots_endpoint_is_public(client, setup):
+    r = client.get(f"/bookings/slots?service_id={setup['catalog']}&hairdresser=any&day={next_weekday(0).isoformat()}")
+    assert r.status_code == 200 and "9 h" in r.text
 
 
 def test_post_requires_csrf(client, setup):
