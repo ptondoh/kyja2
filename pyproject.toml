@@ -35,6 +35,7 @@ dev = [
   "imageio-ffmpeg>=0.5",
   "bandit>=1.7",
   "playwright>=1.47",
+  "requests>=2.32",
   "schemathesis>=3.34",
 ]
 

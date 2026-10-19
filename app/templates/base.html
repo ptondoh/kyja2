@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>{% block title %}KYJA BEAUTÉ{% endblock %}</title>
+  <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/css/style.css">
+  {% block head %}{% endblock %}
 </head>
 <body>
   <header class="site-header">
