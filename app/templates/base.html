@@ -11,6 +11,9 @@
   <header class="site-header">
     <a class="brand" href="/">KYJA BEAUTÉ</a>
     <nav>
+      <a href="/services">Prestations</a>
+      <a href="/products">Produits</a>
+      {% if current_user and current_user.role.value == 'admin' %}<a href="/admin">Admin</a>{% endif %}
       {% if current_user %}
         <span>{{ current_user.full_name }}</span>
         <form method="post" action="/auth/logout" class="inline">

@@ -7,11 +7,14 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from app.admin.router import router as admin_router
 from app.auth.deps import get_current_user_optional
 from app.auth.router import router as auth_router
 from app.config import get_settings
 from app.db.base import get_db
 from app.db.models.core import User
+from app.products.router import router as products_router
+from app.services.router import router as services_router
 from app.security_middleware import SecurityMiddleware
 from app.templating import render
 
@@ -29,7 +32,12 @@ app = FastAPI(
 app.add_middleware(SecurityMiddleware)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+Path(settings.media_dir).mkdir(parents=True, exist_ok=True)
+app.mount("/media-files", StaticFiles(directory=settings.media_dir), name="media")
 app.include_router(auth_router)
+app.include_router(services_router)
+app.include_router(products_router)
+app.include_router(admin_router)
 
 
 @app.get("/")

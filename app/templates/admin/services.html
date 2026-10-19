@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Prestations — Admin{% endblock %}
+{% block content %}
+<p><a href="/admin">← Administration</a></p>
+<h1>Prestations</h1>
+<p><a href="/admin/services/new">+ Nouvelle prestation</a></p>
+<table><tr><th>Nom</th><th>Catégorie</th><th>Prix</th><th>Durée</th><th>Actif</th></tr>
+{% for s in items %}<tr><td><a href="/admin/services/{{ s.id }}">{{ s.name }}</a></td><td>{{ s.category or '' }}</td><td>{{ "%.2f"|format(s.price) }} $</td><td>{{ s.base_duration_min }} min</td><td>{{ 'oui' if s.is_active else 'non' }}</td></tr>
+{% else %}<tr><td colspan="5">Aucune prestation.</td></tr>{% endfor %}
+</table>
+{% endblock %}

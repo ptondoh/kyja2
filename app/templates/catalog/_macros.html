@@ -1,0 +1,23 @@
+{% macro cover(media) -%}
+  {%- set img = media | selectattr('type.value', 'equalto', 'image') | first -%}
+  {%- set vid = media | selectattr('type.value', 'equalto', 'video') | first -%}
+  {%- if img %}<img src="{{ img.url }}" alt="" loading="lazy">
+  {%- elif vid %}<img src="{{ vid.poster_url }}" alt="" loading="lazy"><span class="badge">Vidéo</span>
+  {%- else %}<div class="placeholder"></div>{% endif -%}
+{%- endmacro %}
+
+{% macro gallery(media, alt) -%}
+<div class="gallery">
+  {% for m in media %}
+    {% if m.type.value == 'video' %}
+      <video controls preload="none" playsinline poster="{{ m.poster_url }}" {% if m.width and m.height %}width="{{ m.width }}" height="{{ m.height }}"{% endif %}>
+        <source src="{{ m.url }}" type="video/mp4">
+      </video>
+    {% else %}
+      <img src="{{ m.url }}" alt="{{ alt }}" loading="lazy" {% if m.width and m.height %}width="{{ m.width }}" height="{{ m.height }}"{% endif %}>
+    {% endif %}
+  {% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro price(value) -%}{{ "%.2f"|format(value) }} $ CAD{%- endmacro %}

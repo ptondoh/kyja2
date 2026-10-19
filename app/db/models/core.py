@@ -94,6 +94,7 @@ class Service(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
+    category: Mapped[str | None] = mapped_column(String(100), index=True)  # ex: coiffure, soin
     description: Mapped[str | None] = mapped_column(Text)
     base_duration_min: Mapped[int] = mapped_column(Integer)
     buffer_min: Mapped[int] = mapped_column(Integer, default=0)
@@ -141,7 +142,10 @@ class Media(Base):
     )
     type: Mapped[MediaType] = mapped_column(Enum(MediaType, name="media_type"))
     url: Mapped[str | None] = mapped_column(String(1000))
+    storage_key: Mapped[str | None] = mapped_column(String(500))
     poster_url: Mapped[str | None] = mapped_column(String(1000))
+    poster_key: Mapped[str | None] = mapped_column(String(500))
+    error: Mapped[str | None] = mapped_column(String(500))
     mime_type: Mapped[str | None] = mapped_column(String(100))
     size_bytes: Mapped[int | None] = mapped_column(BigInteger)
     duration_s: Mapped[int | None] = mapped_column(Integer)

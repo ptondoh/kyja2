@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     email_from: str = "KYJA BEAUTÉ <no-reply@example.com>"
 
     upload_tmp_dir: str = "./tmp_uploads"
+    media_dir: str = "./media_files"  # stockage local si R2 n'est pas configuré
+    image_max_mb: int = 10
+    ffmpeg_bin: str = ""
 
     access_token_minutes: int = 15
     refresh_token_days: int = 30

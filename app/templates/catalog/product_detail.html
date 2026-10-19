@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% from "catalog/_macros.html" import gallery, price %}
+{% block title %}{{ product.name }} — KYJA BEAUTÉ{% endblock %}
+{% block content %}
+<p><a href="/products">← Tous les produits</a></p>
+<h1>{{ product.name }}</h1>
+{{ gallery(media, product.name) }}
+<p class="price">{{ price(product.price) }}</p>
+{% if product.stock <= 0 %}<p class="muted">Rupture de stock</p>{% endif %}
+{% if product.description %}<p class="desc">{{ product.description }}</p>{% endif %}
+{% endblock %}

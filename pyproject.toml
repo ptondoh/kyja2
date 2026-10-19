@@ -32,6 +32,7 @@ dev = [
   "ruff>=0.6",
   "pip-audit>=2.7",
   "truststore>=0.9",
+  "imageio-ffmpeg>=0.5",
   "bandit>=1.7",
   "playwright>=1.47",
   "schemathesis>=3.34",

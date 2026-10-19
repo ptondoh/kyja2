@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier' if item else 'Nouveau' }} produit — Admin{% endblock %}
+{% block content %}
+<p><a href="/admin/products">← Produits</a></p>
+<h1>{{ item.name if item else 'Nouveau produit' }}</h1>
+{% if request.query_params.get('saved') %}<p class="ok">Enregistré.</p>{% endif %}
+{% if errors %}<div class="error" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+{% set f = form if form else (item if item else none) %}
+<form method="post" action="{{ '/admin/products/' ~ item.id if item else '/admin/products' }}" class="card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label>Nom <input type="text" name="name" required maxlength="200" value="{{ f.name if f else '' }}"></label>
+  <label>Description <textarea name="description" rows="4">{{ (f.description or '') if f else '' }}</textarea></label>
+  <label>Prix ($ CAD) <input type="text" name="price" required inputmode="decimal" value="{{ f.price if f else '' }}"></label>
+  <label>Stock <input type="number" name="stock" min="0" value="{{ f.stock if f else 0 }}"></label>
+  <label class="check"><input type="checkbox" name="is_active" value="true" {% if not f or f.is_active %}checked{% endif %}> Visible dans le catalogue</label>
+  <button type="submit">Enregistrer</button>
+</form>
+{% if item %}{% set kind = 'products' %}{% include "admin/_media.html" %}{% endif %}
+{% endblock %}
