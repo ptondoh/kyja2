@@ -64,6 +64,7 @@ def login(
             status_code=429,
             error="Trop de tentatives. Réessayez dans 15 minutes.",
             next=next,
+            email=email,
         )
 
     user = db.scalar(select(User).where(User.email == email))
@@ -73,7 +74,7 @@ def login(
         login_limiter.hit(ip_key)
         login_limiter.hit(email_key)
         return render(
-            request, "auth/login.html", status_code=401, error=GENERIC_LOGIN_ERROR, next=next
+            request, "auth/login.html", status_code=401, error=GENERIC_LOGIN_ERROR, next=next, email=email
         )
 
     login_limiter.reset(email_key)

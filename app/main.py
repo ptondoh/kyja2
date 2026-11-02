@@ -13,6 +13,7 @@ from app.auth.deps import get_current_user_optional
 from app.auth.router import router as auth_router
 from app.auth.session_refresh import SessionRefreshMiddleware
 from app.bookings.router import router as bookings_router
+from app.clients.router import router as clients_router
 from app.config import get_settings
 from app.db.base import get_db
 from app.db.models.core import Product, Service, User
@@ -42,6 +43,7 @@ app.mount("/media-files", StaticFiles(directory=settings.media_dir), name="media
 app.include_router(auth_router)
 app.include_router(services_router)
 app.include_router(bookings_router)
+app.include_router(clients_router)
 app.include_router(products_router)
 app.include_router(admin_router)
 app.include_router(admin_booking_router)

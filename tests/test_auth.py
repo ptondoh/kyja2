@@ -102,3 +102,11 @@ def test_logout_revokes_and_me_requires_auth(client):
 
 def test_me_requires_auth(client):
     assert client.get("/auth/me").status_code == 401
+
+
+def test_login_error_keeps_the_email_but_never_the_password(client):
+    r = client.post("/auth/login", data={"email": "memo@test.kyja", "password": "secret-secret-1", "csrf_token": csrf(client)})
+    assert r.status_code == 401 and 'value="memo@test.kyja"' in r.text
+    assert "secret-secret-1" not in r.text  # jamais le mot de passe
+    xss = client.post("/auth/login", data={"email": '"><script>alert(1)</script>', "password": "x", "csrf_token": csrf(client)})
+    assert "<script>alert(1)</script>" not in xss.text  # l'email renvoyé est échappé

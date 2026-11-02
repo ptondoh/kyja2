@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Mon profil — KYJA BEAUTÉ{% endblock %}
+{% block content %}
+{% set f = form if form else current_user %}
+<header class="mb-8 text-center">
+  <p class="eyebrow">Mon espace</p>
+  <h1>Mon profil</h1>
+  <div class="gold-rule mt-4"></div>
+</header>
+
+<div class="mx-auto flex max-w-3xl flex-col gap-8">
+  {% if saved == 'profile' %}<p class="ok" role="status">Vos informations sont enregistrées.</p>{% endif %}
+  {% if saved == 'consent' %}<p class="ok" role="status">Votre choix de communications est enregistré.</p>{% endif %}
+  {% if saved == 'password' %}<p class="ok" role="status">Mot de passe modifié. Vos autres appareils ont été déconnectés.</p>{% endif %}
+  {% if errors %}<div class="error" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+
+  <section class="panel" aria-labelledby="h-infos">
+    <h2 id="h-infos" class="mb-4">Mes informations</h2>
+    <form method="post" action="/clients/me" class="card">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <p class="muted">Adresse email : <strong class="font-medium text-ink">{{ current_user.email }}</strong> (pour la modifier, contactez le salon)</p>
+      <label>Nom complet <input type="text" name="full_name" required maxlength="200" value="{{ f.full_name }}" autocomplete="name"></label>
+      <label>Téléphone <input type="tel" name="phone" maxlength="50" value="{{ f.phone or '' }}" autocomplete="tel"></label>
+      <label>Adresse <textarea name="address" rows="2" maxlength="500" autocomplete="street-address">{{ f.address or '' }}</textarea></label>
+      <button type="submit" class="btn-gold">Enregistrer</button>
+    </form>
+  </section>
+
+  <section class="panel" aria-labelledby="h-rdv">
+    <h2 id="h-rdv" class="mb-2">Mes rendez-vous</h2>
+    <p class="muted">Vous avez {{ appointment_count }} rendez-vous dans votre historique.</p>
+    <a href="/bookings" class="btn-outline mt-4">Voir mon historique</a>
+  </section>
+
+  <section class="panel" aria-labelledby="h-consent">
+    <h2 id="h-consent" class="mb-2">Communications</h2>
+    <form method="post" action="/clients/me/consent" class="card">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label class="check"><input type="checkbox" name="marketing_optin" value="true" {% if marketing %}checked{% endif %}>
+        <span>J'accepte de recevoir des communications marketing de KYJA BEAUTÉ (offres, nouveautés).
+          <span class="muted block">Facultatif. Vous pouvez changer d'avis à tout moment. Les rappels de rendez-vous ne dépendent pas de ce choix.</span></span></label>
+      {% if marketing_since %}<p class="muted">Dernier choix enregistré le {{ marketing_since | fr_date }}.</p>{% endif %}
+      <button type="submit" class="btn-outline">Enregistrer mon choix</button>
+    </form>
+  </section>
+
+  <section class="panel" id="password" aria-labelledby="h-pwd">
+    <h2 id="h-pwd" class="mb-4">Mot de passe</h2>
+    <form method="post" action="/clients/me/password" class="card">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Mot de passe actuel <input type="password" name="current_password" required autocomplete="current-password"></label>
+      <label>Nouveau mot de passe <span class="muted">10 caractères minimum</span>
+        <input type="password" name="new_password" required minlength="10" maxlength="128" autocomplete="new-password"></label>
+      <button type="submit" class="btn-outline">Changer le mot de passe</button>
+      <p class="muted">Vos autres appareils seront déconnectés.</p>
+    </form>
+  </section>
+
+  <section class="panel" aria-labelledby="h-data">
+    <h2 id="h-data" class="mb-2">Mes données</h2>
+    <p class="muted">Vous avez le droit d'obtenir une copie de toutes les données que nous détenons sur vous : profil, consentements, rendez-vous et photos envoyées.</p>
+    <a href="/clients/me/export" class="btn-outline mt-4" download>Télécharger mes données (JSON)</a>
+  </section>
+
+  <section class="panel border-danger/30" id="forget" aria-labelledby="h-forget">
+    <h2 id="h-forget" class="mb-2 text-danger">Supprimer mon compte</h2>
+    {% if can_forget %}
+    <p class="text-ink-soft">Cette action est <strong class="font-medium">définitive</strong>. Votre identité est effacée de notre système.</p>
+    <div class="mt-3 grid gap-4 text-sm sm:grid-cols-2">
+      <div><p class="font-medium text-ink">Effacé</p>
+        <ul class="muted ml-4 list-disc"><li>Votre nom, email, téléphone et adresse</li><li>Vos photos d'inspiration</li><li>Les descriptions de vos demandes</li><li>Vos sessions de connexion</li><li>Vos rendez-vous à venir (annulés)</li></ul></div>
+      <div><p class="font-medium text-ink">Conservé, sans vous identifier</p>
+        <ul class="muted ml-4 list-disc"><li>L'historique des rendez-vous passés (anonymisé)</li><li>Les montants payés (obligation fiscale, 7 ans)</li><li>Les preuves de vos consentements (obligation légale)</li></ul></div>
+    </div>
+    <form method="post" action="/clients/me/delete" class="card mt-5">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Mot de passe <input type="password" name="password" required autocomplete="current-password"></label>
+      <label>Pour confirmer, écrivez <strong class="font-medium">{{ forget_word }}</strong>
+        <input type="text" name="confirmation" required autocomplete="off" autocapitalize="characters" placeholder="{{ forget_word }}"></label>
+      <button type="submit" class="btn-danger !py-3 !text-sm">Supprimer définitivement mon compte</button>
+    </form>
+    {% else %}
+    <p class="muted">Ce compte est géré par le salon : pour le supprimer, contactez l'administration.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

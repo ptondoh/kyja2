@@ -33,7 +33,7 @@
         {% if current_user %}<a href="/bookings" class="py-2 text-ivory/85 hover:text-gold-300">Mes rendez-vous</a>{% endif %}
         {% if current_user and current_user.role.value == 'admin' %}<a href="/admin" class="py-2 text-gold-300 hover:text-gold-200">Admin</a>{% endif %}
         {% if current_user %}
-          <span class="py-2 text-ivory/60 md:border-l md:border-ink-line md:pl-7">{{ current_user.full_name }}</span>
+          <a href="/clients/me" class="py-2 text-ivory/70 hover:text-gold-300 md:border-l md:border-ink-line md:pl-7" title="Mon profil">{{ current_user.full_name }}</a>
           <form method="post" action="/auth/logout" class="inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="btn-outline-light btn-sm">Déconnexion</button>

@@ -29,6 +29,7 @@ from app.auth.ratelimit import login_limiter, register_limiter
 from app.auth.security import hash_password
 from app.bookings.photos import anon_ip_limiter, upload_limiter
 from app.bookings.router import browse_limiter
+from app.clients.router import sensitive_limiter
 from app.bookings.engine import salon_tz
 from app.db.base import SessionLocal
 from app.db.models.core import (
@@ -58,10 +59,15 @@ from app.media.storage import get_private_storage
 
 TEST_DOMAIN = "@test.kyja"
 WALK_IN_DOMAIN = "@sans-courriel.kyja"  # fiches créées par l'admin (réservation par téléphone)
+ANONYMIZED_DOMAIN = "@supprime.kyja"  # comptes anonymisés (droit à l'oubli)
 
 
 def _test_user_filter():
-    return or_(User.email.like(f"%{TEST_DOMAIN}"), User.email.like(f"%{WALK_IN_DOMAIN}"))
+    return or_(
+        User.email.like(f"%{TEST_DOMAIN}"),
+        User.email.like(f"%{WALK_IN_DOMAIN}"),
+        User.email.like(f"%{ANONYMIZED_DOMAIN}"),
+    )
 
 
 def _purge(db) -> None:
@@ -132,6 +138,7 @@ def _clean():
     anon_ip_limiter.clear()
     browse_limiter.clear()
     reset_salon_cache()
+    sensitive_limiter.clear()
     yield
     with SessionLocal() as db:
         _purge(db)

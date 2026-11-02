@@ -271,7 +271,7 @@ Le droit à l'oubli PIPEDA est implémenté par **anonymisation** afin de prése
 ```
 Données anonymisées :
   ├── clients.nom          → "CLIENT_SUPPRIMÉ"
-  ├── clients.email        → "anon_{id}@supprimé.kyja"
+  ├── clients.email        → "anon_{id}@supprime.kyja"  (ASCII : un domaine accentué n'est pas un email valide)
   ├── clients.telephone    → NULL
   └── clients.adresse      → NULL
 
@@ -280,12 +280,16 @@ Données conservées (intégrité légale / comptable) :
   ├── financial_records    → conservés et anonymisés (7 ans, fiscal)
   └── consent_records      → conservés intégralement (obligation légale)
 
-Données supprimées :
-  ├── Photos d'inspiration des demandes sur mesure (fichiers privés et lignes booking_photos)
-  ├── Photos de profil
-  ├── Préférences
-  └── Adresses de livraison
+Données supprimées / modifiées :
+  ├── Photos d'inspiration des demandes sur mesure (fichiers privés ET lignes booking_photos)
+  ├── appointments.client_notes → effacées (texte écrit par la cliente = donnée personnelle)
+  ├── Rendez-vous à venir       → annulés (les créneaux sont libérés)
+  ├── Sessions                  → tous les jetons de renouvellement révoqués
+  ├── Mot de passe              → remplacé par un hachage d'une valeur aléatoire que personne ne connaît
+  └── (Photos de profil, préférences, adresses de livraison : à supprimer de même quand ces données existeront)
 ```
+
+Implémentation : `app/clients/service.py::forget_user` (une transaction ; les fichiers ne sont effacés qu'après la validation en base). La cliente la déclenche depuis `/clients/me` : mot de passe **et** mot de confirmation `SUPPRIMER`, avec limitation des essais (5 échecs / 15 min par compte). Les comptes du personnel (admin, coiffeuse) ne se suppriment pas en libre-service. L'opération laisse une trace d'audit (`kyja.audit`) sans aucune donnée personnelle. L'adresse d'origine est libérée : la personne peut recréer un compte. L'email anonymisé est en ASCII (`supprime.kyja`) car un domaine accentué n'est pas une adresse valide.
 
 > `ON DELETE CASCADE` uniquement sur les données sans valeur légale ou comptable (photos de profil, préférences, adresses de livraison).
 
@@ -534,7 +538,8 @@ Tous les envois sont traités de manière **asynchrone via Celery**. En cas d'é
 |---|---|
 | Consentement marketing explicite | Opt-in checkbox à l'inscription, loggué dans `consent_records` |
 | Droit à l'oubli | Anonymisation des données personnelles (voir schéma BDD) |
-| Accès aux données personnelles | Endpoint `GET /clients/me/export` → JSON de toutes les données |
+| Accès aux données personnelles | `GET /clients/me/export` → fichier JSON (profil, consentements, rendez-vous, photos) sans aucun secret (ni mot de passe, ni jeton), `Cache-Control: no-store` |
+| Consentement marketing | Historique en ajout seulement (`consent_records`) : chaque changement ajoute une ligne, l'état courant est la dernière ; jamais coché par défaut, modifiable depuis le profil |
 | Chiffrement en transit | HTTPS obligatoire (Let's Encrypt) |
 | Chiffrement au repos | `pgcrypto` pour données PII sensibles (téléphone, adresse) |
 | Audit trail financier | `financial_records` anonymisés, jamais supprimés |

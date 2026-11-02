@@ -90,4 +90,6 @@ Tout le parcours (choix, calendrier, heures, description, photos) est **public**
 
 ## 5. Conformité Légale (Canada)
 * **Consentement :** Opt-in explicite requis pour les communications marketing de **KYJA BEAUTÉ**[cite: 1].
-* **Protection :** Accès direct pour la cliente à la suppression totale de ses données personnelles[cite: 1].
+* **Protection :** Accès direct pour la cliente à la suppression totale de ses données personnelles[cite: 1], depuis son profil (`/clients/me`) : **suppression de son identité par anonymisation**, avec mot de passe et confirmation. Sont effacés : nom, email, téléphone, adresse, photos d'inspiration, descriptions de ses demandes et sessions ; ses rendez-vous à venir sont annulés. Sont conservés **sans l'identifier** : l'historique des rendez-vous passés, les montants payés (7 ans, obligation fiscale) et les preuves de consentement (obligation légale).
+* **Accès :** la cliente peut télécharger **une copie de toutes ses données** (fichier JSON) depuis son profil, et consulter son historique de rendez-vous.
+* **Profil :** modification du nom, du téléphone et de l'adresse ; changement de mot de passe (les autres appareils sont déconnectés) ; choix des communications marketing modifiable à tout moment, avec historique conservé.
