@@ -3,13 +3,35 @@
 {% block content %}
 <a href="/admin" class="link-gold text-sm">← Administration</a>
 <div class="mb-6 mt-4 flex flex-wrap items-center justify-between gap-4">
-  <h1>Prestations</h1>
-  <a href="/admin/services/new" class="btn-gold btn-sm">+ Nouvelle prestation</a>
+  <h1>{{ 'Prestations archivées' if show_archived else 'Prestations' }}</h1>
+  <div class="flex flex-wrap gap-2">
+    <a href="/admin/categories" class="btn-outline btn-sm">Catégories</a>
+    {% if show_archived %}<a href="/admin/services" class="btn-outline btn-sm">← Prestations actives</a>
+    {% else %}<a href="/admin/services?archived=1" class="btn-outline btn-sm">Archivées</a>
+    <a href="/admin/services/new" class="btn-gold btn-sm">+ Nouvelle prestation</a>{% endif %}
+  </div>
 </div>
+{% if request.query_params.get('removed') or request.query_params.get('archived') %}
+<p class="ok mb-5" role="status">
+  {% if request.query_params.get('removed') %}Supprimée définitivement : {{ request.query_params.get('removed') }}.{% endif %}
+  {% if request.query_params.get('archived') %}Archivée (historique conservé) : {{ request.query_params.get('archived') }}.{% endif %}
+</p>
+{% endif %}
+{% if show_archived %}<p class="muted mb-4">Ces prestations ont des rendez-vous passés : elles ne sont plus visibles sur le site, mais l'historique est conservé.</p>{% endif %}
 <div class="panel overflow-x-auto !p-2">
-<table class="admin-table"><thead><tr><th>Nom</th><th>Catégorie</th><th>Prix</th><th>Durée</th><th>Actif</th></tr></thead><tbody>
-{% for s in items %}<tr><td><a class="link-gold" href="/admin/services/{{ s.id }}">{{ s.name }}</a>{% if s.is_custom_request %} <span class="status status-confirmed">intégrée</span>{% endif %}</td><td>{{ s.category or '' }}</td><td>{{ (s.price | money) if s.price is not none else 'sur devis' }}</td><td>{{ s.base_duration_min }} min</td><td>{{ 'oui' if s.is_active else 'non' }}</td></tr>
-{% else %}<tr><td colspan="5" class="muted">Aucune prestation.</td></tr>{% endfor %}
+<table class="admin-table"><thead><tr><th>Nom</th><th>Catégorie</th><th>Prix</th><th>Durée</th><th>{{ 'Archivée le' if show_archived else 'Actif' }}</th><th></th></tr></thead><tbody>
+{% for s in items %}<tr>
+  <td><a class="link-gold" href="/admin/services/{{ s.id }}">{{ s.name }}</a>{% if s.is_custom_request %} <span class="status status-confirmed">intégrée</span>{% endif %}</td>
+  <td>{{ s.category.name if s.category else '—' }}</td>
+  <td>{{ (s.price | money) if s.price is not none else 'sur devis' }}</td>
+  <td>{{ s.base_duration_min }} min</td>
+  <td>{{ (s.archived_at | fr_date) if show_archived else ('oui' if s.is_active else 'non') }}</td>
+  <td class="whitespace-nowrap">
+    {% if show_archived %}
+    <form method="post" action="/admin/services/{{ s.id }}/restore" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn-outline btn-sm">Restaurer</button></form>
+    {% elif not s.is_custom_request %}<a href="/admin/services/{{ s.id }}/delete" class="btn-danger">Supprimer…</a>{% endif %}
+  </td>
+</tr>{% else %}<tr><td colspan="6" class="muted">{{ 'Aucune prestation archivée.' if show_archived else 'Aucune prestation.' }}</td></tr>{% endfor %}
 </tbody></table>
 </div>
 {% endblock %}

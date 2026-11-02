@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Supprimer {{ service.name }} — Admin{% endblock %}
+{% block content %}
+<a href="/admin/services/{{ service.id }}" class="link-gold text-sm">← {{ service.name }}</a>
+<h1 class="mb-6 mt-4">Supprimer « {{ service.name }} »</h1>
+{% if errors %}<div class="error mb-5" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+<div class="panel mx-auto max-w-2xl">
+  {% if history %}
+  <p class="text-ink-soft"><strong class="font-medium">Cette prestation a déjà des rendez-vous.</strong> Elle sera <strong class="font-medium">archivée</strong> : elle disparaît du site et de la réservation, mais les rendez-vous passés gardent leur prestation, leurs prix et leur historique. Vous pourrez la restaurer plus tard.</p>
+  {% else %}
+  <p class="text-ink-soft">Cette prestation n'a jamais été réservée : elle sera <strong class="font-medium">supprimée définitivement</strong>, avec ses photos et vidéos ({{ service.media | length }}).</p>
+  {% endif %}
+  {% if future %}
+  <p class="error mt-4" role="alert">{{ future }} rendez-vous à venir utilisent cette prestation : annulez-les d'abord (<a href="/admin/appointments" class="link-gold">Rendez-vous</a>).</p>
+  {% else %}
+  <form method="post" action="/admin/services/{{ service.id }}/delete" class="mt-6 flex flex-wrap gap-3">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn-danger !py-3 !text-sm">{{ 'Archiver la prestation' if history else 'Supprimer définitivement' }}</button>
+    <a href="/admin/services/{{ service.id }}" class="btn-outline">Annuler</a>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

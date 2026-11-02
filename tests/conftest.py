@@ -28,6 +28,7 @@ from sqlalchemy import delete, or_, select
 from app.auth.ratelimit import login_limiter, register_limiter
 from app.auth.security import hash_password
 from app.bookings.photos import anon_ip_limiter, upload_limiter
+from app.bookings.quote_router import token_limiter
 from app.bookings.router import browse_limiter
 from app.clients.router import sensitive_limiter
 from app.bookings.engine import salon_tz
@@ -38,10 +39,13 @@ from app.db.models.core import (
     AvailabilitySlot,
     BookingDraft,
     BookingPhoto,
+    Category,
     ConsentRecord,
     FinancialRecord,
     Hairdresser,
     Media,
+    MessageOutbox,
+    Notification,
     PricingMode,
     Product,
     RefreshToken,
@@ -90,6 +94,8 @@ def _purge(db) -> None:
         storage.delete(ph.storage_key)
     db.execute(delete(BookingPhoto))
     db.execute(delete(BookingDraft))
+    db.execute(delete(Notification))  # base de test : on purge tout
+    db.execute(delete(MessageOutbox))
     cond = []
     if uids:
         cond.append(Appointment.client_id.in_(uids))
@@ -108,6 +114,7 @@ def _purge(db) -> None:
     if sids:
         db.execute(delete(ServiceResource).where(ServiceResource.service_id.in_(sids)))
         db.execute(delete(Service).where(Service.id.in_(sids)))
+    db.execute(delete(Category).where(Category.name.like("TEST %")))
     db.execute(delete(Product).where(Product.name.like("TEST %")))
     db.execute(delete(Resource).where(Resource.name.like("TEST %")))
     db.execute(delete(AppSetting))
@@ -137,6 +144,7 @@ def _clean():
     upload_limiter.clear()
     anon_ip_limiter.clear()
     browse_limiter.clear()
+    token_limiter.clear()
     reset_salon_cache()
     sensitive_limiter.clear()
     yield
@@ -214,10 +222,18 @@ def make_hairdresser(
     return h
 
 
+def make_category(db, name="TEST Coiffure") -> Category:
+    c = Category(name=name)
+    db.add(c)
+    db.commit()
+    return c
+
+
 def make_service(
-    db, name="TEST Brushing", base=60, buffer=0, price="55.00", mode=PricingMode.estimate, kinds=()
+    db, name="TEST Brushing", base=60, buffer=0, price="55.00", mode=PricingMode.estimate, kinds=(), category=None
 ) -> Service:
     s = Service(
+        category_id=category.id if category else None,
         name=name,
         base_duration_min=base,
         buffer_min=buffer,
@@ -244,3 +260,30 @@ def make_resource(db, kind="wash_basin", name="TEST Bac 1") -> Resource:
     db.add(r)
     db.commit()
     return r
+
+
+def make_media_file(db, owner, kind="image", name="photo") -> "Media":
+    """Média « prêt » rattaché à une prestation ou un produit, avec un VRAI fichier dans le stockage de test."""
+    import tempfile
+    from pathlib import Path
+
+    from app.db.models.core import MediaStatus, MediaType
+    from app.media.storage import get_storage
+
+    prefix = "services" if isinstance(owner, Service) else "products"
+    ext = ".mp4" if kind == "video" else ".webp"
+    key, poster_key = f"{prefix}/{owner.id}/{name}{ext}", (f"{prefix}/{owner.id}/{name}-poster.webp" if kind == "video" else None)
+    with tempfile.TemporaryDirectory() as tmp:
+        for k in filter(None, (key, poster_key)):
+            f = Path(tmp) / "f"
+            f.write_bytes(f"contenu de {k}".encode())
+            get_storage().save(f, k, "application/octet-stream")
+    m = Media(
+        service_id=owner.id if prefix == "services" else None,
+        product_id=owner.id if prefix == "products" else None,
+        type=MediaType(kind), status=MediaStatus.ready, storage_key=key, poster_key=poster_key,
+        url=f"/media-files/{key}", poster_url=f"/media-files/{poster_key}" if poster_key else None, mime_type="application/octet-stream",
+    )  # fmt: skip
+    db.add(m)
+    db.commit()
+    return m

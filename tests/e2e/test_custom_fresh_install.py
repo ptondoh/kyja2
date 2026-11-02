@@ -75,7 +75,7 @@ def test_custom_request_from_a_fresh_install(page, shot, fresh_salon, tmp_path):
     expect(recap).to_contain_text("Photos d'inspiration (2)")
     expect(recap).to_contain_text("10 h →")
     page.click("text=Confirmer la réservation")
-    expect(page.locator("[role=status]")).to_contain_text("Rendez-vous confirmé")
+    expect(page.locator("[role=status]")).to_contain_text("Demande reçue")
     expect(page.locator(".recap .photo-grid img")).to_have_count(2)
     with SessionLocal() as db:
         appt = db.scalar(select(Appointment))

@@ -153,7 +153,7 @@ def test_full_custom_flow_with_photos_edit_and_admin_view(page, browser, base_ur
     page.locator("#slots .slot").first.click()
     page.click("text=Voir le récapitulatif")
     page.click("text=Confirmer la réservation")
-    expect(page.locator("[role=status]")).to_contain_text("Rendez-vous confirmé")
+    expect(page.locator("[role=status]")).to_contain_text("Demande reçue")
     wait_images_loaded(page, ".recap .photo-grid img", expected=3)
     shot("34-detail-photos")
     assert drafts_count() == 0 and photos_count() == 3  # rattachées au rendez-vous, plus de brouillons

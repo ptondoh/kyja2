@@ -412,6 +412,29 @@ COMMIT;
 
 ---
 
+## Catalogue : catégories, suppression et archivage
+
+```
+categories(id, name)  — unicité insensible à la casse (index sur lower(name))
+services.category_id  → categories.id  ON DELETE SET NULL      (remplace l'ancien texte libre `services.category`)
+services.archived_at, hairdressers.archived_at                 (archivage : NULL = actif)
+```
+
+Règle (module `app/services/lifecycle.py`) : « supprimer » ne détruit jamais l'historique.
+
+| Élément | Jamais utilisé | Déjà des rendez-vous | Rendez-vous à venir |
+|---|---|---|---|
+| Prestation | supprimée (lignes + fichiers) | **archivée** (`archived_at`, `is_active = false`, catégorie retirée) | refusé (`InUse`) |
+| Coiffeuse | — (jamais supprimée en dur) | **archivée** : `archived_at`, `is_active = false`, compte désactivé, sessions révoquées ; nom, email, téléphone et historique conservés | refusé, sauf case « annuler ces rendez-vous » |
+| Catégorie | supprimée | ses prestations sont traitées comme ci-dessus | refusé si l'une d'elles a des rendez-vous à venir |
+| Produit | supprimé (lignes + fichiers) | *(sans objet tant qu'il n'y a pas de commandes ; devra être archivé en phase 2)* | — |
+
+* Les fichiers (images, vidéos, miniatures) ne sont effacés **qu'après** la validation en base.
+* Les archivées sont filtrées partout : site public, accueil, choix de réservation, « peu importe » (`active_hairdressers`), calendrier, listes admin (vue « Archivées » avec « Restaurer »). Cocher « visible » sur une prestation archivée la restaure.
+* **Sauvegarde d'une catégorie** (`GET /admin/categories/{id}/backup`) : ZIP = `categorie.json` + `LISEZ-MOI.txt` + `medias/<prestation>/…` ; aucune donnée de cliente. Un fichier introuvable devient `….MANQUANT` sans faire échouer la sauvegarde. Elle sert de copie de sécurité lisible ; **il n'y a pas encore d'import pour la restaurer automatiquement**.
+* Suppression d'une catégorie : page d'avertissement (`/admin/categories/{id}/delete`), confirmation en écrivant le nom exact.
+* Migration `e8a1c5d6f731` : les catégories saisies en texte libre deviennent des catégories (doublons de casse fusionnés) ; testée sur une copie des données réelles.
+
 ## Authentification & Autorisation
 
 ### Flux d'authentification (web — rendu serveur)
@@ -493,10 +516,26 @@ Puisque les requêtes HTMX/formulaires envoient automatiquement les cookies de s
 
 ## Notifications
 
+### Ce qui est en place (sans Redis ni Celery)
+
+- **Cycle d'une demande sur mesure** : `pending_quote` → (prix proposé) `awaiting_client` → `confirmed` ou `cancelled`. Les deux premiers statuts occupent le créneau (`ACTIVE_STATUSES`). Code : `app/bookings/quotes.py`.
+- **Lien de réponse** : jeton aléatoire de 256 bits (`secrets.token_urlsafe(32)`), seule son **empreinte SHA-256** est en base (`quote_token_hash`, unique). Usage unique, expiration, remplacé par un nouveau prix. `GET/POST /quotes/{jeton}` sans connexion (CSRF double-submit, `no-store`, `Referrer-Policy: no-referrer`, 20 essais ratés/h/IP). La réponse verrouille la ligne (`FOR UPDATE`) : deux réponses simultanées ne passent pas toutes les deux.
+- **Alertes** : table `notifications` (cloche, `GET /notifications/poll` interrogé toutes les 30 s par `static/js/notifications.js`, alerte du navigateur via l'API `Notification`) ; table `message_outbox` (journal des courriels/SMS : `queued` → `sent` | `failed` | `preview`). Préférences par utilisatrice : `pref_in_app`, `pref_browser_alert`, `pref_email`, `pref_sms`.
+- **Envoi** : `app/notifications/providers.py` — Resend (courriel), Twilio par `httpx` (SMS). Sans clés : statut `preview`, rien ne part. Un échec est conservé et réessayable (Admin → Messages envoyés). L'envoi se fait après la réponse (`BackgroundTasks`), il ne ralentit pas la cliente.
+- **Nettoyage** : `app/notifications/sweeper.py`, boucle dans le processus du site toutes les 5 min (lifespan) : annule les prix expirés.
+- **Agenda coiffeuse** : `app/hairdressers/router.py` (`/agenda`), filtré sur la coiffeuse connectée (404 pour les rendez-vous des autres).
+
+### Cible (Celery, quand Redis sera installé)
+
+Tous les envois sont traités de manière **asynchrone via Celery**. En cas d'échec, retry automatique avec backoff exponentiel (3 tentatives maximum). `deliver()` et `sweep_once()` deviennent des tâches Celery sans changer leur code.
+
+### Envois à terme
+
 Tous les envois sont traités de manière **asynchrone via Celery**. En cas d'échec, retry automatique avec backoff exponentiel (3 tentatives maximum).
 
 ### Email — Resend
 
+- Prix final d'une demande sur mesure (**en place**)
 - Confirmation de réservation
 - Rappel de rendez-vous (J-1 et H-2) — planifié par Celery Beat
 - Statuts de commande et livraison

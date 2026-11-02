@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth.deps import get_current_user_optional
 from app.db.base import get_db
-from app.db.models.core import Media, MediaStatus, Service, User
+from app.db.models.core import Category, Media, MediaStatus, Service, User
 from app.templating import render
 
 router = APIRouter(prefix="/services")
@@ -22,17 +22,14 @@ def list_services(
     db: Session = Depends(get_db),
     user: User | None = Depends(get_current_user_optional),
 ):
-    q = select(Service).options(selectinload(Service.media)).where(
-        Service.is_active.is_(True), Service.is_custom_request.is_(False)
-    )
+    visible = (Service.is_active.is_(True), Service.is_custom_request.is_(False), Service.archived_at.is_(None))
+    q = select(Service).options(selectinload(Service.media)).where(*visible)
     if category:
-        q = q.where(Service.category == category)
-    services = db.scalars(q.order_by(Service.category, Service.name)).all()
+        q = q.join(Service.category).where(func.lower(Category.name) == category.strip().lower())
+    # Regroupées par catégorie (sans catégorie à la fin), puis par nom.
+    services = sorted(db.scalars(q).unique().all(), key=lambda s: (s.category is None, s.category.name.lower() if s.category else "", s.name.lower()))
     categories = db.scalars(
-        select(Service.category)
-        .where(Service.is_active.is_(True), Service.is_custom_request.is_(False), Service.category.is_not(None))
-        .distinct()
-        .order_by(Service.category)
+        select(Category.name).join(Service, Service.category_id == Category.id).where(*visible).distinct().order_by(Category.name)
     ).all()
     return render(
         request,
@@ -54,7 +51,7 @@ def service_detail(
     service = db.scalar(
         select(Service).options(selectinload(Service.media)).where(Service.id == service_id)
     )
-    if not service or not service.is_active or service.is_custom_request:
+    if not service or not service.is_active or service.is_custom_request or service.archived_at:
         raise HTTPException(status_code=404)
     return render(
         request,

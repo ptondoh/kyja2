@@ -324,7 +324,7 @@ def test_forget_leaves_other_clients_untouched(setup):
         ob = db.scalar(select(User).where(User.email == "b@test.kyja"))
         assert ob.full_name == "Autre Cliente" and ob.phone == "514 555-0100" and ob.is_active
         a = db.get(Appointment, oappt)
-        assert a.status == AppointmentStatus.confirmed and a.client_notes == NOTES and [p.id for p in a.photos] == [opid]
+        assert a.status == AppointmentStatus.pending_quote and a.client_notes == NOTES and [p.id for p in a.photos] == [opid]
     assert other.get(f"/bookings/photos/{opid}").status_code == 200
 
 

@@ -6,7 +6,7 @@
 <div class="mt-6 grid gap-10 lg:grid-cols-[1fr_22rem]">
   <div class="order-2 lg:order-1">{{ gallery(media, service.name) }}</div>
   <aside class="order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start">
-    {% if service.category %}<p class="eyebrow">{{ service.category }}</p>{% endif %}
+    {% if service.category %}<p class="eyebrow">{{ service.category.name }}</p>{% endif %}
     <h1 class="mt-1 text-4xl">{{ service.name }}</h1>
     <p class="price mt-3 text-3xl">{{ service_price(service) }}</p>
     <p class="muted mt-1">Durée de base : {{ service.base_duration_min | fr_duration }} (la durée exacte dépend de la coiffeuse)</p>

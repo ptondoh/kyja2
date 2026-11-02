@@ -14,6 +14,8 @@ from app.auth.ratelimit import RateLimiter
 from app.auth.security import hash_password, verify_password
 from app.bookings import drafts
 from app.clients import service
+from app.notifications import providers
+from app.notifications import service as notifications
 from app.db.base import get_db
 from app.db.models.core import Appointment, Role, User
 from app.security_middleware import verify_csrf
@@ -37,6 +39,9 @@ def _profile_context(db: Session, user: User, **extra) -> dict:
         "appointment_count": total,
         "can_forget": user.role == Role.client,
         "forget_word": service.FORGET_CONFIRMATION,
+        "channels": notifications.available_channels(user),
+        "email_ready": providers.email_configured(),
+        "sms_ready": providers.sms_configured(),
         **extra,
     }
 
@@ -92,6 +97,26 @@ def update_consent(
 ):
     service.set_marketing_consent(db, user, marketing_optin)  # jamais coché par défaut ; historique conservé
     return RedirectResponse("/clients/me?saved=consent", status_code=303)
+
+
+@router.post("/me/notifications")
+def update_notifications(
+    in_app: bool = Form(False),
+    browser_alert: bool = Form(False),
+    email: bool = Form(False),
+    sms: bool = Form(False),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_login),
+):
+    """La cliente choisit comment être avertie. Le SMS exige un numéro valide ; le courriel, une vraie adresse."""
+    channels = notifications.available_channels(user)
+    user.pref_in_app, user.pref_browser_alert = in_app, browser_alert
+    user.pref_email = email and channels["email"]
+    user.pref_sms = sms and channels["sms"]
+    db.commit()
+    if (sms and not channels["sms"]) or (email and not channels["email"]):
+        return RedirectResponse("/clients/me?saved=notifications-partial#notifications", status_code=303)
+    return RedirectResponse("/clients/me?saved=notifications#notifications", status_code=303)
 
 
 @router.post("/me/password")

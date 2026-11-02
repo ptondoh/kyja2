@@ -4,11 +4,28 @@
 <div class="mx-auto max-w-2xl">
   <a href="/bookings" class="link-gold text-sm">← Mes rendez-vous</a>
   {% if is_new %}
-  <div class="ok mt-4" role="status"><strong class="font-medium">Rendez-vous confirmé.</strong> Nous vous attendons au salon.</div>
+  {% if appt.status.value == 'pending_quote' %}<div class="ok mt-4" role="status"><strong class="font-medium">Demande reçue.</strong> Le créneau est réservé. Vous recevrez le prix final à confirmer.</div>
+  {% else %}<div class="ok mt-4" role="status"><strong class="font-medium">Rendez-vous confirmé.</strong> Nous vous attendons au salon.</div>{% endif %}
   {% endif %}
   {% if request.query_params.get('cancelled') %}<div class="ok mt-4" role="status">Rendez-vous annulé.</div>{% endif %}
   <h1 class="mb-2 mt-6">{{ appt.service.name }}</h1>
-  <p><span class="status status-{{ appt.status.value }}">{{ {'confirmed': 'Confirmé', 'completed': 'Terminé', 'cancelled': 'Annulé'}[appt.status.value] }}</span></p>
+  <p><span class="status status-{{ appt.status.value }}">{{ status_label(appt) }}</span></p>
+  {% if appt.booking_mode.value == 'catalog' and appt.final_price is none and appt.status.value != 'cancelled' %}
+  <div class="price-notice mt-6" role="note">
+    <strong class="font-medium">Prix estimatif.</strong> Le montant affiché est une estimation : il peut varier après l'analyse des photos et des vidéos de la coiffure souhaitée. Le prix final vous est confirmé au salon.
+  </div>
+  {% endif %}
+  {% if appt.status.value == 'pending_quote' %}
+  <div class="price-notice mt-6" role="note"><strong class="font-medium">Votre demande est en cours d'étude.</strong> Le salon regarde vos photos et votre description, puis vous propose un prix. Vous serez avertie et vous pourrez accepter ou refuser : le créneau est réservé en attendant.</div>
+  {% elif appt.status.value == 'awaiting_client' %}
+  <div class="price-notice mt-6" role="alert"><strong class="font-medium">Votre prix est prêt : {{ appt.quoted_price | money }}.</strong>
+    Acceptez-le pour confirmer le rendez-vous, ou refusez-le pour l'annuler.
+    <form method="post" action="/bookings/{{ appt.id }}/quote" class="mt-3 flex flex-wrap gap-3"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" name="decision" value="accept" class="btn-gold btn-sm">J'accepte {{ appt.quoted_price | money }}</button>
+      <button type="submit" name="decision" value="decline" class="btn-danger">Je refuse : annuler</button></form>
+    <span class="muted block mt-2">Valable jusqu'au {{ appt.quote_expires_at | fr_date }}.</span></div>
+  {% endif %}
+  {% if appt.status.value == 'cancelled' and cancel_reason(appt) %}<p class="muted mt-3">Raison : {{ cancel_reason(appt) }}.</p>{% endif %}
   <div class="panel mt-6">
     <dl class="recap">
       <dt>Date</dt><dd>{{ appt.starts_at | fr_date }}</dd>
@@ -16,14 +33,15 @@
       <dt>Coiffeuse</dt><dd>{{ appt.hairdresser.user.full_name }}</dd>
       <dt>Prix</dt>
       <dd>{% if appt.final_price is not none %}{{ appt.final_price | money }} <span class="muted">(montant final)</span>
+        {% elif appt.quoted_price is not none and appt.status.value != 'cancelled' %}{{ appt.quoted_price | money }} <span class="muted">({{ 'à accepter' if appt.status.value == 'awaiting_client' else 'prix accepté' }})</span>
         {% elif appt.estimated_price is not none %}{{ appt.estimated_price | money }} <span class="muted">(estimation, montant final confirmé au salon)</span>
         {% else %}À confirmer au salon{% endif %}</dd>
       {% if appt.client_notes %}<dt>Votre demande</dt><dd class="whitespace-pre-line text-base">{{ appt.client_notes }}</dd>{% endif %}
       {% if appt.photos %}<dt>Photos d'inspiration ({{ appt.photos | length }})</dt>
-      <dd><ul class="photo-grid">{% for ph in appt.photos %}<li class="photo-card"><a href="/bookings/photos/{{ ph.id }}" target="_blank" rel="noopener"><img src="/bookings/photos/{{ ph.id }}" alt="Photo d'inspiration {{ loop.index }}" loading="lazy"></a></li>{% endfor %}</ul></dd>{% endif %}
+      <dd><ul class="photo-grid" data-lightbox>{% for ph in appt.photos %}<li class="photo-card"><a href="/bookings/photos/{{ ph.id }}" data-lightbox-item data-type="image"><img src="/bookings/photos/{{ ph.id }}" alt="Photo d'inspiration {{ loop.index }}" loading="lazy"></a></li>{% endfor %}</ul></dd>{% endif %}
       <dt>Paiement</dt><dd>Au salon (Cash / Interac)</dd>
     </dl>
-    {% if appt.status.value == 'confirmed' and appt.starts_at > now %}
+    {% if appt.status.value in ('pending_quote', 'awaiting_client', 'confirmed') and appt.starts_at > now %}
     <form method="post" action="/bookings/{{ appt.id }}/cancel">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" class="btn-danger">Annuler ce rendez-vous</button>

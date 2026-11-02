@@ -111,6 +111,19 @@
   .chips a.on { @apply border-gold-500 bg-gold-500 text-ink; }
   .gallery { @apply my-6 grid gap-4 sm:grid-cols-2; }
   .gallery img, .gallery video { @apply h-auto w-full rounded-2xl bg-cream object-cover shadow-sm; }
+  .gallery-photo { @apply block cursor-zoom-in; }
+  .gallery-video { @apply relative; }
+  .gallery-video .expand { @apply absolute right-2 top-2 flex size-9 items-center justify-center rounded-full bg-ink/70 text-lg text-gold-300 no-underline hover:bg-ink; }
+  /* Visionneuse (carrousel) */
+  .lightbox { @apply m-0 size-full max-h-none max-w-none border-0 bg-transparent p-0 text-ivory; }
+  .lightbox::backdrop { background: rgb(10 8 6 / 0.94); }
+  .lightbox-stage { @apply flex size-full items-center justify-center px-4 py-14 sm:px-20; touch-action: pan-y; }
+  .lightbox-media { @apply max-h-full max-w-full rounded-lg object-contain; }
+  .lightbox-count { @apply absolute inset-x-0 bottom-3 m-0 px-16 text-center text-sm text-ivory/80; }
+  .lightbox-btn { @apply absolute flex size-11 cursor-pointer items-center justify-center rounded-full border border-ink-line bg-ink/80 text-2xl leading-none text-gold-300 hover:bg-ink; }
+  .lightbox-close { @apply right-3 top-3; }
+  .lightbox-prev { @apply left-3 top-1/2 -translate-y-1/2; }
+  .lightbox-next { @apply right-3 top-1/2 -translate-y-1/2; }
   .desc { @apply max-w-prose text-lg leading-relaxed text-ink-soft; }
 
   /* Réservation */
@@ -132,6 +145,7 @@
   .recap dd { @apply mb-4 text-lg text-ink; }
   .status { @apply inline-block rounded-full px-3 py-1 text-xs font-medium uppercase tracking-wider; }
   .status-confirmed { @apply bg-gold-300/40 text-gold-700; }
+  .status-pending_quote, .status-awaiting_client { @apply border border-dashed border-gold-500 bg-transparent text-gold-700; }
   .status-completed { @apply bg-ok-bg text-ok; }
   .status-cancelled { @apply bg-cream text-muted line-through; }
 
@@ -156,6 +170,12 @@
   .cal-note { @apply mt-3 rounded-lg bg-cream px-3 py-2 text-sm text-muted; }
   .cal-legend { @apply mt-3 flex items-center gap-2 text-xs text-muted; }
   .day-key { @apply inline-block size-4 rounded-full bg-gold-300/60; }
+
+  /* Prix estimatif */
+  .price-notice { @apply mb-5 rounded-xl border border-gold-300 bg-gold-300/15 px-4 py-3 text-sm text-ink-soft; }
+  dialog.price-dialog {
+    @apply m-auto w-[min(92vw,28rem)] rounded-2xl border border-gold-300 bg-ivory p-6 text-ink shadow-xl backdrop:bg-ink/60;
+  }
 
   /* Photos d'inspiration */
   .dropzone {

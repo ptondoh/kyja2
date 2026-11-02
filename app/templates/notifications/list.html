@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Mes alertes — KYJA BEAUTÉ{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-2xl">
+  <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <h1>Mes alertes</h1>
+    {% if items | selectattr('read_at', 'none') | list %}
+    <form method="post" action="/notifications/read"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn-outline btn-sm">Tout marquer comme lu</button></form>
+    {% endif %}
+  </header>
+  <ul class="flex list-none flex-col gap-3 p-0">
+  {% for n in items %}
+    <li class="panel !p-4 {{ '' if n.read_at else 'border-gold-400' }}" data-notification>
+      <strong class="font-medium">{{ n.title }}</strong>{% if not n.read_at %} <span class="status status-confirmed">nouveau</span>{% endif %}
+      <p class="mb-1">{{ n.body }}</p>
+      <span class="muted">{{ n.created_at | fr_date }} · {{ n.created_at | fr_time }}</span>
+      {% if n.url %}<a href="{{ n.url }}" class="link-gold ml-3">Ouvrir</a>{% endif %}
+    </li>
+  {% else %}<li class="muted">Aucune alerte pour le moment.</li>{% endfor %}
+  </ul>
+  {% if current_user.role.value == 'client' %}<p class="muted mt-6">Vous choisissez comment être avertie (site, courriel, SMS) dans <a href="/clients/me#notifications" class="link-gold">votre profil</a>.</p>{% endif %}
+</div>
+{% endblock %}

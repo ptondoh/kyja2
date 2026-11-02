@@ -109,10 +109,14 @@ def test_admin_full_catalog_flow(page, shot, admin_user, media_files):
     page.click("header >> text=Admin")
     expect(page.locator("h1")).to_have_text("Administration")
 
-    # création d'une prestation
+    # création d'une catégorie (liste déroulante ensuite), puis d'une prestation dans cette catégorie
+    page.goto("/admin/categories")
+    page.fill("input[name=name] >> nth=-1", "TEST coiffure")
+    page.locator("form[action='/admin/categories'] >> button[type=submit]").click()
+    expect(page.locator(".ok").first).to_have_text("Catégorie créée.")
     page.goto("/admin/services/new")
     page.fill("input[name=name]", "TEST Coloration")
-    page.fill("input[name=category]", "coiffure")
+    page.select_option("select[name=category_id]", label="TEST coiffure")
     page.fill("textarea[name=description]", "Coloration complète <b>sans ammoniaque</b>")
     page.fill("input[name=base_duration_min]", "90")
     page.fill("input[name=price]", "120.00")

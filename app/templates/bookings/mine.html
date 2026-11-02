@@ -5,7 +5,7 @@
 <li><a href="/bookings/{{ a.id }}" class="panel flex flex-wrap items-center justify-between gap-3 !p-4 hover:border-gold-400">
   <span><strong class="font-display text-xl font-semibold">{{ a.service.name }}</strong><br>
     <span class="muted">{{ a.starts_at | fr_date }} · {{ a.starts_at | fr_time }} → {{ a.ends_at | fr_time }} · avec {{ a.hairdresser.user.full_name }}</span></span>
-  <span class="status status-{{ a.status.value }}">{{ {'confirmed': 'Confirmé', 'completed': 'Terminé', 'cancelled': 'Annulé'}[a.status.value] }}</span>
+  <span class="status status-{{ a.status.value }}">{{ status_label(a) }}</span>
 </a></li>
 {% endmacro %}
 <header class="mb-8 flex flex-wrap items-end justify-between gap-4">

@@ -2,14 +2,20 @@
 {% block title %}Coiffeuses — Admin{% endblock %}
 {% block content %}
 <a href="/admin" class="link-gold text-sm">← Administration</a>
-<h1 class="mb-6 mt-4">Coiffeuses</h1>
+<div class="mb-6 mt-4 flex flex-wrap items-center justify-between gap-4">
+  <h1>{{ 'Coiffeuses archivées' if show_archived else 'Coiffeuses' }}</h1>
+  {% if show_archived %}<a href="/admin/hairdressers" class="btn-outline btn-sm">← Coiffeuses actives</a>{% else %}<a href="/admin/hairdressers?archived=1" class="btn-outline btn-sm">Archivées</a>{% endif %}
+</div>
+{% if request.query_params.get('removed') %}<p class="ok mb-5" role="status">{{ request.query_params.get('removed') }} est archivée : son historique et ses coordonnées sont conservés{% if request.query_params.get('cancelled') not in (none, '0') %} ; {{ request.query_params.get('cancelled') }} rendez-vous à venir annulé(s){% endif %}.</p>{% endif %}
+{% if show_archived %}<p class="muted mb-4">Ces coiffeuses n'apparaissent plus dans la réservation. Leur historique de rendez-vous et leurs coordonnées sont conservés ; vous pouvez les restaurer.</p>{% endif %}
 <div class="grid gap-8 lg:grid-cols-[1fr_24rem]">
   <div class="panel overflow-x-auto !p-2">
-    <table class="admin-table"><thead><tr><th>Nom</th><th>Email</th><th>Coefficient</th><th>Plages</th><th>Active</th></tr></thead><tbody>
+    <table class="admin-table"><thead><tr><th>Nom</th><th>Email</th><th>Coefficient</th><th>Plages</th><th>Active</th><th></th></tr></thead><tbody>
     {% for h in items %}<tr>
       <td><a class="link-gold" href="/admin/hairdressers/{{ h.id }}">{{ h.user.full_name }}</a></td>
       <td>{{ h.user.email }}</td><td>× {{ h.duration_coefficient }}</td><td>{{ h.slots | length }}</td><td>{{ 'oui' if h.is_active else 'non' }}</td>
-    </tr>{% else %}<tr><td colspan="5" class="muted">Aucune coiffeuse. Créez la première →</td></tr>{% endfor %}
+      <td class="whitespace-nowrap">{% if show_archived %}<form method="post" action="/admin/hairdressers/{{ h.id }}/restore" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn-outline btn-sm">Restaurer</button></form>{% else %}<a href="/admin/hairdressers/{{ h.id }}/delete" class="btn-danger">Supprimer…</a>{% endif %}</td>
+    </tr>{% else %}<tr><td colspan="6" class="muted">{{ 'Aucune coiffeuse archivée.' if show_archived else 'Aucune coiffeuse. Créez la première →' }}</td></tr>{% endfor %}
     </tbody></table>
   </div>
   <div class="panel">

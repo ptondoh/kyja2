@@ -7,14 +7,17 @@
 {%- endmacro %}
 
 {% macro gallery(media, alt) -%}
-<div class="gallery">
+<div class="gallery" data-lightbox>
   {% for m in media %}
     {% if m.type.value == 'video' %}
-      <video controls preload="none" playsinline poster="{{ m.poster_url }}" {% if m.width and m.height %}width="{{ m.width }}" height="{{ m.height }}"{% endif %}>
-        <source src="{{ m.url }}" type="video/mp4">
-      </video>
+      <div class="gallery-video">
+        <video controls preload="none" playsinline poster="{{ m.poster_url }}" {% if m.width and m.height %}width="{{ m.width }}" height="{{ m.height }}"{% endif %}>
+          <source src="{{ m.url }}" type="video/mp4">
+        </video>
+        <a href="{{ m.url }}" class="expand" data-lightbox-item data-type="video" data-poster="{{ m.poster_url }}" data-alt="{{ alt }} (vidéo)" aria-label="Agrandir la vidéo" title="Agrandir">⤢</a>
+      </div>
     {% else %}
-      <img src="{{ m.url }}" alt="{{ alt }}" loading="lazy" {% if m.width and m.height %}width="{{ m.width }}" height="{{ m.height }}"{% endif %}>
+      <a href="{{ m.url }}" class="gallery-photo" data-lightbox-item data-type="image" aria-label="Agrandir la photo"><img src="{{ m.url }}" alt="{{ alt }}" loading="lazy" {% if m.width and m.height %}width="{{ m.width }}" height="{{ m.height }}"{% endif %}></a>
     {% endif %}
   {% endfor %}
 </div>
@@ -31,7 +34,7 @@
 <a class="tile group" href="{{ href or ('/services/' ~ s.id) }}">
   <div class="cover">{{ cover(media) }}</div>
   <div class="info">
-    {% if s.category %}<p class="eyebrow">{{ s.category }}</p>{% endif %}
+    {% if s.category %}<p class="eyebrow">{{ s.category.name }}</p>{% endif %}
     <h2>{{ s.name }}</h2>
     <p class="price">{{ service_price(s) }}</p>
     <p class="muted">Durée de base : {{ s.base_duration_min | fr_duration }}</p>

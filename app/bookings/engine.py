@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db.models.core import (
+    ACTIVE_STATUSES,
     Appointment,
     AppointmentResource,
     AppointmentStatus,
@@ -104,9 +105,9 @@ def _required_kinds(db: Session, service_id: int) -> list[str]:
     )
 
 
-def _confirmed_overlap(start: datetime, end: datetime):
+def _active_overlap(start: datetime, end: datetime):
     return (
-        Appointment.status == AppointmentStatus.confirmed,
+        Appointment.status.in_(ACTIVE_STATUSES),  # une demande en attente de prix occupe aussi son créneau
         Appointment.starts_at < end,
         Appointment.ends_at > start,
     )
@@ -138,7 +139,7 @@ def _free_resource_ids(db: Session, kind: str, start: datetime, end: datetime, l
         db.scalars(
             select(AppointmentResource.resource_id)
             .join(Appointment)
-            .where(AppointmentResource.resource_id.in_(ids), *_confirmed_overlap(start, end))
+            .where(AppointmentResource.resource_id.in_(ids), *_active_overlap(start, end))
         ).all()
     )
     return [i for i in ids if i not in busy]
@@ -166,7 +167,7 @@ def free_starts(
     day_start, day_end = min(w[0] for w in windows), max(w[1] for w in windows)
     busy = db.execute(
         select(Appointment.starts_at, Appointment.ends_at).where(
-            Appointment.hairdresser_id == hairdresser.id, *_confirmed_overlap(day_start, day_end)
+            Appointment.hairdresser_id == hairdresser.id, *_active_overlap(day_start, day_end)
         )
     ).all()
 
@@ -186,7 +187,7 @@ def free_starts(
 
 def active_hairdressers(db: Session) -> list[Hairdresser]:
     return list(
-        db.scalars(select(Hairdresser).join(User).where(Hairdresser.is_active.is_(True), User.is_active.is_(True)).order_by(Hairdresser.id))
+        db.scalars(select(Hairdresser).join(User).where(Hairdresser.is_active.is_(True), Hairdresser.archived_at.is_(None), User.is_active.is_(True)).order_by(Hairdresser.id))
     )
 
 
@@ -305,7 +306,7 @@ def create_booking(
 
         if not any(w0 <= start and end <= w1 for w0, w1 in _windows(db, h.id, day)):
             continue
-        if db.scalar(select(Appointment.id).where(Appointment.hairdresser_id == h.id, *_confirmed_overlap(start, end)).limit(1)):
+        if db.scalar(select(Appointment.id).where(Appointment.hairdresser_id == h.id, *_active_overlap(start, end)).limit(1)):
             continue
         resource_ids, ok = [], True
         for kind in kinds:
@@ -325,7 +326,7 @@ def create_booking(
             client_notes=(notes or "").strip()[:2000] or None,
             starts_at=start,
             ends_at=end,
-            status=AppointmentStatus.confirmed,
+            status=AppointmentStatus.pending_quote if mode == BookingMode.custom else AppointmentStatus.confirmed,
             base_duration_min=quote.base_duration_min,
             coefficient_used=quote.coefficient,
             buffer_min=quote.buffer_min,
@@ -355,12 +356,14 @@ def create_booking(
     raise SlotUnavailable("Ce créneau vient d'être réservé. Merci d'en choisir un autre.")
 
 
-def cancel_booking(db: Session, appt: Appointment, now: datetime | None = None) -> None:
-    if appt.status != AppointmentStatus.confirmed:
+def cancel_booking(db: Session, appt: Appointment, now: datetime | None = None, reason: str = "client") -> None:
+    if appt.status not in ACTIVE_STATUSES:
         raise BookingError("Ce rendez-vous ne peut plus être annulé.")
     if appt.starts_at <= (now or utcnow()):
         raise BookingError("Ce rendez-vous est déjà commencé ou passé.")
     appt.status = AppointmentStatus.cancelled
+    appt.cancel_reason = reason
+    appt.quote_token_hash = None  # un lien de confirmation du prix ne doit plus servir
     db.commit()
 
 
@@ -368,6 +371,8 @@ def set_final_price(db: Session, appt: Appointment, price: Decimal) -> None:
     """Prix final saisi au salon : clôt la prestation et alimente la finance (PRD 4.A / 4.B)."""
     if appt.status == AppointmentStatus.cancelled:
         raise BookingError("Un rendez-vous annulé n'a pas de prix final.")
+    if appt.status in (AppointmentStatus.pending_quote, AppointmentStatus.awaiting_client):
+        raise BookingError("Le prix n'est pas encore accepté par la cliente : proposez-le d'abord.")
     if price < 0:
         raise BookingError("Prix invalide.")
     appt.final_price = price

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Supprimer la catégorie {{ category.name }} — Admin{% endblock %}
+{% block content %}
+<a href="/admin/categories" class="link-gold text-sm">← Catégories</a>
+<h1 class="mb-6 mt-4">Supprimer la catégorie « {{ category.name }} »</h1>
+{% if errors %}<div class="error mb-5" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+
+<div class="mx-auto flex max-w-3xl flex-col gap-6">
+  <div class="rounded-2xl border border-danger/30 bg-danger-bg p-6" role="alert">
+    <h2 class="text-danger">Attention : tout le contenu de cette catégorie disparaîtra</h2>
+    <p class="mt-2 text-ink-soft">Supprimer la catégorie supprime aussi <strong class="font-medium">toutes ses prestations</strong> et leurs photos et vidéos. Elles ne seront plus visibles sur le site ni réservables.</p>
+  </div>
+
+  <section class="panel">
+    <h2 class="mb-3">Ce qui va se passer</h2>
+    {% if not overview.rows %}
+    <p class="muted">Cette catégorie ne contient aucune prestation : seule la catégorie sera supprimée.</p>
+    {% endif %}
+    {% if overview.to_delete %}
+    <p class="font-medium">Supprimées définitivement ({{ overview.to_delete | length }}) <span class="muted font-normal">— jamais réservées{% if overview.media_total %}, {{ overview.media_total }} photo(s) ou vidéo(s) effacée(s){% endif %}</span></p>
+    <ul class="muted mb-4 ml-5 list-disc">{% for r in overview.to_delete %}<li>{{ r.service.name }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if overview.to_archive %}
+    <p class="font-medium">Archivées ({{ overview.to_archive | length }}) <span class="muted font-normal">— elles ont déjà des rendez-vous : invisibles partout, mais l'historique des rendez-vous est conservé</span></p>
+    <ul class="muted mb-4 ml-5 list-disc">{% for r in overview.to_archive %}<li>{{ r.service.name }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if overview.blockers %}
+    <div class="error" role="alert">
+      <strong class="font-medium">Suppression impossible pour l'instant.</strong> Des rendez-vous à venir utilisent :
+      {% for name, n in overview.blockers %}{{ name }} ({{ n }}){% if not loop.last %}, {% endif %}{% endfor %}.
+      Annulez-les d'abord (<a href="/admin/appointments" class="link-gold">Rendez-vous</a>).
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2 class="mb-2">1. Faire une sauvegarde (recommandé)</h2>
+    <p class="muted">Téléchargez une copie de la catégorie : ses prestations (textes, durées, prix, équipements) et toutes leurs photos et vidéos, dans un fichier ZIP.</p>
+    <a href="/admin/categories/{{ category.id }}/backup" class="btn-outline mt-4" download>Télécharger la sauvegarde (ZIP)</a>
+  </section>
+
+  {% if not overview.blockers %}
+  <section class="panel border-danger/30">
+    <h2 class="mb-2 text-danger">2. Confirmer la suppression</h2>
+    <form method="post" action="/admin/categories/{{ category.id }}/delete" class="card">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Pour confirmer, écrivez le nom de la catégorie : <strong class="font-medium">{{ category.name }}</strong>
+        <input type="text" name="confirmation" required autocomplete="off" placeholder="{{ category.name }}"></label>
+      <div class="flex flex-wrap gap-3">
+        <button type="submit" class="btn-danger !py-3 !text-sm">Supprimer définitivement la catégorie</button>
+        <a href="/admin/categories" class="btn-outline">Annuler</a>
+      </div>
+    </form>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

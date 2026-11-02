@@ -1,3 +1,5 @@
+import asyncio
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
@@ -8,15 +10,20 @@ from sqlalchemy.orm import Session, selectinload
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.admin.booking_admin import router as admin_booking_router
+from app.admin.catalog_admin import router as admin_catalog_router
 from app.admin.router import router as admin_router
 from app.auth.deps import get_current_user_optional
 from app.auth.router import router as auth_router
 from app.auth.session_refresh import SessionRefreshMiddleware
+from app.bookings.quote_router import router as quote_router
 from app.bookings.router import router as bookings_router
 from app.clients.router import router as clients_router
 from app.config import get_settings
 from app.db.base import get_db
 from app.db.models.core import Product, Service, User
+from app.hairdressers.router import router as agenda_router
+from app.notifications import sweeper
+from app.notifications.router import router as notifications_router
 from app.products.router import router as products_router
 from app.services.router import ready_media
 from app.services.router import router as services_router
@@ -27,8 +34,16 @@ settings = get_settings()
 if not settings.is_dev and (settings.secret_key == "change-me" or len(settings.secret_key) < 32):  # nosec B105
     raise RuntimeError("SECRET_KEY doit être défini (32 caractères minimum) hors développement")
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    task = asyncio.create_task(sweeper.run_forever())  # annule les prix restés sans réponse
+    yield
+    task.cancel()
+
+
 # Pas de documentation OpenAPI publique en production.
 app = FastAPI(
+    lifespan=lifespan,
     title="KYJA BEAUTÉ",
     docs_url="/docs" if settings.is_dev else None,
     redoc_url=None,
@@ -43,10 +58,14 @@ app.mount("/media-files", StaticFiles(directory=settings.media_dir), name="media
 app.include_router(auth_router)
 app.include_router(services_router)
 app.include_router(bookings_router)
+app.include_router(quote_router)
+app.include_router(agenda_router)
+app.include_router(notifications_router)
 app.include_router(clients_router)
 app.include_router(products_router)
 app.include_router(admin_router)
 app.include_router(admin_booking_router)
+app.include_router(admin_catalog_router)
 
 
 @app.get("/")
@@ -58,7 +77,7 @@ def index(
     services = db.scalars(
         select(Service)
         .options(selectinload(Service.media))
-        .where(Service.is_active.is_(True), Service.is_custom_request.is_(False))
+        .where(Service.is_active.is_(True), Service.is_custom_request.is_(False), Service.archived_at.is_(None))
         .order_by(Service.id.desc())
         .limit(4)
     ).all()

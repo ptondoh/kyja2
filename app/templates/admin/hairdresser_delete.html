@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Supprimer {{ item.user.full_name }} — Admin{% endblock %}
+{% block content %}
+<a href="/admin/hairdressers/{{ item.id }}" class="link-gold text-sm">← {{ item.user.full_name }}</a>
+<h1 class="mb-6 mt-4">Supprimer {{ item.user.full_name }}</h1>
+{% if errors %}<div class="error mb-5" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+<div class="panel mx-auto max-w-2xl">
+  <p class="text-ink-soft">La coiffeuse disparaît de la réservation, du calendrier et des listes, et son compte ne peut plus se connecter.</p>
+  <div class="mt-4 rounded-xl bg-cream p-4 text-sm">
+    <p class="font-medium text-ink">Conservé</p>
+    <ul class="muted ml-5 list-disc"><li>Ses coordonnées : nom, email{% if item.user.phone %}, téléphone{% endif %}</li><li>Tout son historique de rendez-vous{% if past %} (les rendez-vous passés gardent son nom){% endif %}</li><li>Vous pouvez la restaurer à tout moment (liste « Archivées »)</li></ul>
+  </div>
+  <form method="post" action="/admin/hairdressers/{{ item.id }}/delete" class="card mt-6">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% if future %}
+    <p class="error" role="alert">{{ future }} rendez-vous à venir sont prévus avec elle.</p>
+    <label class="check"><input type="checkbox" name="cancel_future" value="true">
+      <span>Annuler ces {{ future }} rendez-vous à venir <span class="muted block">Les clientes ne sont pas prévenues automatiquement : pensez à les contacter.</span></span></label>
+    {% endif %}
+    <div class="flex flex-wrap gap-3">
+      <button type="submit" class="btn-danger !py-3 !text-sm">Supprimer la coiffeuse</button>
+      <a href="/admin/hairdressers/{{ item.id }}" class="btn-outline">Annuler</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

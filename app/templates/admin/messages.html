@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Messages envoyés — Admin{% endblock %}
+{% block content %}
+<a href="/admin/appointments" class="link-gold text-sm">← Rendez-vous</a>
+<h1 class="mb-2 mt-4">Messages envoyés</h1>
+<p class="muted mb-4">Courriels et SMS adressés aux clientes (prix à confirmer, etc.).</p>
+<div class="mb-5 flex flex-wrap gap-3 text-sm">
+  <span class="status {{ 'status-completed' if email_ready else 'status-pending_quote' }}">Courriel : {{ 'actif (Resend)' if email_ready else 'non configuré' }}</span>
+  <span class="status {{ 'status-completed' if sms_ready else 'status-pending_quote' }}">SMS : {{ 'actif (Twilio)' if sms_ready else 'non configuré' }}</span>
+</div>
+{% if not email_ready or not sms_ready %}
+<p class="price-notice mb-6" role="note"><strong class="font-medium">Mode aperçu.</strong> Tant qu'un fournisseur n'est pas configuré dans <code>.env</code>, les messages de ce canal ne partent pas : ils sont seulement enregistrés ici (statut « aperçu ») pour pouvoir tout vérifier.</p>
+{% endif %}
+<div class="panel overflow-x-auto !p-2">
+<table class="admin-table"><thead><tr><th>Date</th><th>Canal</th><th>À</th><th>Message</th><th>Statut</th><th></th></tr></thead><tbody>
+{% for m in rows %}<tr>
+  <td>{{ m.created_at | fr_date }}<br><span class="muted">{{ m.created_at | fr_time }}</span></td>
+  <td>{{ 'Courriel' if m.channel == 'email' else 'SMS' }}</td>
+  <td>{{ m.to_address }}</td>
+  <td>{% if m.subject %}<strong class="font-medium">{{ m.subject }}</strong><br>{% endif %}<span class="muted whitespace-pre-line">{{ m.body }}</span></td>
+  <td><span class="status status-{{ {'sent': 'completed', 'preview': 'confirmed', 'failed': 'cancelled', 'queued': 'pending_quote'}[m.status] }}">{{ {'sent': 'Envoyé', 'preview': 'Aperçu', 'failed': 'Échec', 'queued': 'En file'}[m.status] }}</span>
+    {% if m.error %}<br><span class="muted">{{ m.error }}</span>{% endif %}</td>
+  <td>{% if m.status in ('failed', 'queued') %}<form method="post" action="/admin/messages/{{ m.id }}/retry"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn-outline btn-sm">Réessayer</button></form>{% endif %}</td>
+</tr>{% else %}<tr><td colspan="6" class="muted">Aucun message pour le moment.</td></tr>{% endfor %}
+</tbody></table>
+</div>
+{% endblock %}

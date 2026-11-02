@@ -68,6 +68,7 @@ Tout le parcours (choix, calendrier, heures, description, photos) est **public**
 6. **Confirmation** : connexion ou création de compte si ce n'est pas déjà fait, puis transaction atomique (voir Gestion des Conflits) et email de confirmation.
 
 #### Règles
+* **Prix estimatif — avis à la cliente :** pour les coiffures du catalogue, le récapitulatif affiche un avis permanent, et une **fenêtre de confirmation** s'ouvre au moment de confirmer : « le prix est estimatif et peut varier après analyse des photos et des vidéos ; le montant final est confirmé au salon ». L'avis est répété sur la page du rendez-vous tant que le prix final n'est pas saisi.
 * **Calcul du temps :** $$\text{Durée} = (\text{Temps Prestation} \times \text{Coeff. Coiffeuse}) + \text{Buffer Time}$$[cite: 1]. Durée arrondie au pas du calendrier (ex: 15 min). Le calcul s'applique **à tous les modes**.
 * **Demande sur mesure intégrée :** une prestation « Demande sur mesure » existe dès l'installation (durée de base 2 h et repos 15 min par défaut, modifiables par l'admin dans Prestations). Elle n'apparaît pas dans le catalogue public. Sa durée de base alimente le calcul comme pour toute prestation.
 * **Mémorisation du calcul :** chaque rendez-vous conserve les valeurs utilisées (durée de base, coefficient, temps de repos, durée calculée) pour rester cohérent si le coefficient d'une coiffeuse change ensuite.
@@ -77,10 +78,25 @@ Tout le parcours (choix, calendrier, heures, description, photos) est **public**
 * **Photos d'inspiration (mode 2) :** jusqu'à **10 photos** par demande (JPEG, PNG ou WebP, 10 Mo maximum chacune). Un **aperçu s'affiche immédiatement** dès la sélection, avant même la fin de l'envoi ; chaque photo peut être retirée avant la confirmation. Les photos sont **privées** : visibles uniquement de la cliente, de l'admin et de la coiffeuse assignée ; les métadonnées (dont la géolocalisation) sont supprimées. Les photos jamais rattachées à un rendez-vous sont effacées après 24 h ; elles sont supprimées avec le droit à l'oubli.
 * **Demandes sur mesure :** la description et les photos sont visibles de la coiffeuse et de l'admin ; l'admin peut ajuster la durée avant la prestation (la cliente est notifiée).
 * **Annulation / modification :** la cliente peut annuler depuis son profil ; le créneau est libéré immédiatement (cache de disponibilités invalidé).
+* **Prix final d'une demande sur mesure (accord de la cliente) :** à la réservation, le créneau est **réservé** et le rendez-vous est « **Prix à proposer** ». L'**admin ou la coiffeuse assignée** étudie la description et les photos, puis **propose le prix final**. La cliente est alors avertie et reçoit un **lien** pour **accepter** (le rendez-vous devient « Confirmé ») ou **refuser** (le rendez-vous est annulé et le créneau libéré). Elle peut aussi répondre depuis la page de son rendez-vous. Le lien : valable **7 jours** (réglable par l'admin) sans dépasser la date du rendez-vous, **à usage unique**, remplacé si un nouveau prix est proposé ; sans réponse, le rendez-vous est annulé automatiquement et l'équipe est prévenue. L'accord ne vaut pas paiement : le paiement reste au salon.
+* **Alertes — la cliente choisit :** dans son profil, la cliente choisit comment être avertie : **dans le site** (cloche « Alertes »), **alerte du navigateur** quand le site est ouvert, **courriel**, **SMS** (numéro valide requis). Le personnel reçoit toujours les alertes du site (nouvelle demande, prix accepté ou refusé, annulation). *Tant que les comptes Resend (courriel) et Twilio (SMS) ne sont pas configurés, ces deux canaux fonctionnent en « aperçu » : le message est écrit dans Admin → Messages envoyés, sans être expédié.*
+* **Agenda de la coiffeuse :** la coiffeuse a sa propre page « **Mon agenda** » avec **tous les rendez-vous pris avec elle**, même non confirmés, classés (Prix à proposer / En attente de la cliente / Confirmés à venir / Passés et annulés) et filtrables par type (sur mesure ou catalogue). Elle y voit la cliente, sa description et ses photos, et propose le prix. Ses propres réservations comme cliente restent dans « Mes rendez-vous ».
+* **Photos et vidéos en carrousel :** un clic sur une photo ou l'icône d'agrandissement d'une vidéo ouvre une **visionneuse** plein écran : flèches du clavier, boutons ou glissement du doigt pour faire défiler, Échap pour fermer.
 
 ### **B. Gestion des Coiffeuses Indépendantes**
 * **Modèle financier :** Calcul en temps réel des commissions ou des loyers de chaise selon la grille tarifaire de **KYJA BEAUTÉ**[cite: 1], à partir du **prix final** saisi au salon (et non du prix estimatif).
 * **Confidentialité :** Les preuves de compétences (diplômes/expérience) sont réservées exclusivement à la validation administrative de **KYJA BEAUTÉ**[cite: 1].
+
+### **C0. Gestion du catalogue par l'administrateur**
+* **Catégories :** l'admin crée, renomme et supprime des catégories de prestations ; elles apparaissent en **liste déroulante** dans le formulaire de prestation et comme filtres sur le site. Un nom de catégorie est unique (sans tenir compte des majuscules).
+* **Supprimer ne doit jamais effacer l'historique :**
+  * une prestation **jamais réservée** est supprimée définitivement (photos et vidéos comprises) ;
+  * une prestation **déjà réservée** est **archivée** : invisible partout, mais les rendez-vous passés la gardent ; restaurable ;
+  * une **coiffeuse** « supprimée » est **archivée** : elle disparaît de la réservation et des listes, son compte ne peut plus se connecter, mais son **historique et ses coordonnées sont conservés** ; restaurable ;
+  * s'il reste des **rendez-vous à venir**, la suppression est refusée (pour une coiffeuse, l'admin peut choisir de les annuler explicitement) ;
+  * la prestation intégrée « Demande sur mesure » ne peut pas être supprimée.
+* **Supprimer une catégorie** supprime aussi toutes ses prestations. L'admin voit un **avertissement** listant ce qui sera effacé et ce qui sera archivé, se voit **proposer une sauvegarde téléchargeable** (ZIP : prestations en JSON + photos et vidéos) avant de continuer, et doit écrire le nom de la catégorie pour confirmer.
+* **Stock faible :** sur la fiche d'un produit, quand il reste **5 unités ou moins**, le nombre restant s'affiche à côté de « En stock », entre parenthèses et **en rouge** (ex. « En stock (3) »). À 0 : « Rupture de stock ».
 
 ### **C. Logistique et Inventaire**
 * **Livraison :** Notifications d'étapes ("En route", "Arrivé") avec preuve photographique obligatoire pour garantir la réception des produits[cite: 1].

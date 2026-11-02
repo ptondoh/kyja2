@@ -11,6 +11,8 @@
   <link rel="icon" href="/static/img/favicon.png" type="image/png">
   <link rel="preload" href="/static/fonts/CormorantGaramond-600.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/css/style.css">
+  {% if current_user %}<script src="/static/js/notifications.js" defer></script>{% endif %}
+  <script src="/static/js/lightbox.js" defer></script>
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -30,9 +32,11 @@
       <nav class="absolute inset-x-0 top-16 hidden flex-col gap-1 border-b border-ink-line bg-ink px-4 py-4 text-sm tracking-wide peer-checked:flex md:static md:flex md:flex-row md:items-center md:gap-7 md:border-0 md:bg-transparent md:p-0" aria-label="Navigation principale">
         <a href="/services" class="py-2 text-ivory/85 hover:text-gold-300">Prestations</a>
         <a href="/products" class="py-2 text-ivory/85 hover:text-gold-300">Produits</a>
+        {% if current_user and current_user.role.value == 'hairdresser' %}<a href="/agenda" class="py-2 text-gold-300 hover:text-gold-200">Mon agenda</a>{% endif %}
         {% if current_user %}<a href="/bookings" class="py-2 text-ivory/85 hover:text-gold-300">Mes rendez-vous</a>{% endif %}
         {% if current_user and current_user.role.value == 'admin' %}<a href="/admin" class="py-2 text-gold-300 hover:text-gold-200">Admin</a>{% endif %}
         {% if current_user %}
+          <a href="/notifications" id="bell" class="relative py-2 text-ivory/85 hover:text-gold-300" aria-label="Alertes">Alertes <span data-bell-count hidden class="ml-1 rounded-full bg-gold-400 px-1.5 text-xs font-semibold text-ink">0</span></a>
           <a href="/clients/me" class="py-2 text-ivory/70 hover:text-gold-300 md:border-l md:border-ink-line md:pl-7" title="Mon profil">{{ current_user.full_name }}</a>
           <form method="post" action="/auth/logout" class="inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

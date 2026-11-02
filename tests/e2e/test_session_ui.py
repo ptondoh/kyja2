@@ -5,7 +5,7 @@ from PIL import Image
 from playwright.sync_api import expect
 
 from tests.conftest import next_weekday
-from tests.e2e.conftest import choose_hairdresser, pick_day
+from tests.e2e.conftest import choose_hairdresser, confirm_catalog_booking, pick_day
 from tests.e2e.test_booking_flow import ADMIN, CLIENT, salon, sign_in  # noqa: F401  (fixture `salon`)
 
 
@@ -59,7 +59,7 @@ def test_confirming_a_booking_after_expiry_needs_no_new_login(page, shot, salon)
     expect(page.locator("text=Confirmer la réservation")).to_be_visible()
 
     expire_session(page)  # la session expire pendant que la cliente relit son récapitulatif
-    page.click("text=Confirmer la réservation")
+    confirm_catalog_booking(page)  # la fenêtre du prix estimatif, puis confirmation
     expect(page.locator("[role=status]")).to_contain_text("Rendez-vous confirmé")  # direct, sans passer par la connexion
     assert page.console_errors == [], page.console_errors
 

@@ -20,6 +20,7 @@
       <label class="check"><input type="checkbox" name="is_active" value="true" {% if not f or f.is_active %}checked{% endif %}> <span>Visible dans le catalogue</span></label>
       <button type="submit" class="btn-gold">Enregistrer</button>
     </form>
+    {% if item %}<p class="mt-6 border-t border-line pt-4"><a href="/admin/products/{{ item.id }}/delete" class="btn-danger">Supprimer ce produit…</a></p>{% endif %}
   </div>
   {% if item %}<div class="panel">{% set kind = 'products' %}{% include "admin/_media.html" %}</div>{% endif %}
 </div>

@@ -2,7 +2,7 @@
 
 Usage :
     python -m scripts.seed_demo            crée 2 coiffeuses (avec horaires), 2 bacs de lavage, 5 prestations, 2 produits
-    python -m scripts.seed_demo --remove   retire uniquement ce que ce script a créé
+    python -m scripts.seed_demo --remove   retire ce que ce script a créé (et les catégories de démonstration restées vides)
 
 Les comptes de démonstration utilisent l'adresse @demo.kyja ; leurs mots de passe sont générés
 au hasard et affichés une seule fois (ce sont des comptes de coiffeuse, pas d'administrateur).
@@ -12,7 +12,7 @@ import secrets
 import sys
 from decimal import Decimal
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from app.auth.security import hash_password
 from app.db.base import SessionLocal
@@ -21,6 +21,7 @@ from app.db.models.core import (
     AppointmentResource,
     AvailabilitySlot,
     BookingPhoto,
+    Category,
     FinancialRecord,
     Hairdresser,
     Media,
@@ -69,11 +70,17 @@ def create() -> None:
         for kind, name in RESOURCES:
             if not db.scalar(select(Resource.id).where(Resource.name == name)):
                 db.add(Resource(kind=kind, name=name))
+        categories: dict[str, Category] = {}
+        for _, cat, *_rest in SERVICES:
+            if cat not in categories:
+                categories[cat] = db.scalar(select(Category).where(func.lower(Category.name) == cat.lower())) or Category(name=cat)
+                db.add(categories[cat])
+        db.flush()
         for name, cat, base, buffer, price, kinds in SERVICES:
             if db.scalar(select(Service.id).where(Service.name == name)):
                 continue
             svc = Service(
-                name=name, category=cat, base_duration_min=base, buffer_min=buffer,
+                name=name, category_id=categories[cat].id, base_duration_min=base, buffer_min=buffer,
                 pricing_mode=PricingMode.estimate, price=Decimal(price),
                 description="Prestation de démonstration.",
             )  # fmt: skip
@@ -109,6 +116,11 @@ def remove() -> None:
             db.execute(delete(ServiceResource).where(ServiceResource.service_id.in_(sids)))
             db.execute(delete(Service).where(Service.id.in_(sids)))
         db.execute(delete(Resource).where(Resource.name.in_([r[1] for r in RESOURCES])))
+        # Catégories de démonstration restées vides (celles que vous utilisez déjà gardent leurs prestations).
+        for cat in {c for _, c, *_ in SERVICES}:
+            row = db.scalar(select(Category).where(func.lower(Category.name) == cat.lower()))
+            if row and not db.scalar(select(Service.id).where(Service.category_id == row.id)):
+                db.delete(row)
         db.execute(delete(Product).where(Product.name.in_([p[0] for p in PRODUCTS])))
         if uids:
             db.execute(delete(User).where(User.id.in_(uids)))

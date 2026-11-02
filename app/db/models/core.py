@@ -43,6 +43,8 @@ class MediaStatus(str, enum.Enum):
 
 
 class AppointmentStatus(str, enum.Enum):
+    pending_quote = "pending_quote"  # demande sur mesure : le prix final reste à proposer (le créneau est réservé)
+    awaiting_client = "awaiting_client"  # prix proposé : la cliente doit l'accepter ou le refuser (créneau réservé)
     confirmed = "confirmed"
     cancelled = "cancelled"
     completed = "completed"
@@ -56,6 +58,13 @@ class PricingMode(str, enum.Enum):
 class BookingMode(str, enum.Enum):
     catalog = "catalog"
     custom = "custom"
+
+
+ACTIVE_STATUSES = (
+    AppointmentStatus.pending_quote,
+    AppointmentStatus.awaiting_client,
+    AppointmentStatus.confirmed,
+)
 
 
 class ExperienceLevel(str, enum.Enum):
@@ -77,6 +86,11 @@ class User(Base):
     phone: Mapped[str | None] = mapped_column(String(50))
     address: Mapped[str | None] = mapped_column(String(500))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Comment l'utilisatrice veut être avertie (choisi dans son profil). Le personnel reçoit toujours les alertes du site.
+    pref_in_app: Mapped[bool] = mapped_column(Boolean, default=True)
+    pref_browser_alert: Mapped[bool] = mapped_column(Boolean, default=True)
+    pref_email: Mapped[bool] = mapped_column(Boolean, default=True)
+    pref_sms: Mapped[bool] = mapped_column(Boolean, default=False)  # exige un téléphone et un consentement
     anonymized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -105,6 +119,19 @@ class RefreshToken(Base):
     replaced_by_id: Mapped[int | None] = mapped_column(Integer)
 
 
+class Category(Base):
+    """Catégorie de prestations (ex : Coiffure, Soins), créée et gérée par l'admin."""
+
+    __tablename__ = "categories"
+    __table_args__ = (Index("uq_categories_name_ci", text("lower(name)"), unique=True),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    services: Mapped[list["Service"]] = relationship(back_populates="category")
+
+
 class Service(Base):
     __tablename__ = "services"
     __table_args__ = (
@@ -113,7 +140,7 @@ class Service(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
-    category: Mapped[str | None] = mapped_column(String(100), index=True)  # ex: coiffure, soin
+    category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id", ondelete="SET NULL"), index=True)
     description: Mapped[str | None] = mapped_column(Text)
     base_duration_min: Mapped[int] = mapped_column(Integer)
     buffer_min: Mapped[int] = mapped_column(Integer, default=0)
@@ -124,6 +151,11 @@ class Service(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     # Prestation intégrée « Demande sur mesure » (mode 2) : une seule, absente du catalogue public.
     is_custom_request: Mapped[bool] = mapped_column(Boolean, default=False, server_default=expression.false())
+    # Rempli quand l'admin « supprime » une prestation qui a déjà des rendez-vous : elle disparaît du site
+    # et de l'admin par défaut, mais l'historique des rendez-vous reste intact.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    category: Mapped["Category | None"] = relationship(back_populates="services", lazy="joined")
 
     media: Mapped[list["Media"]] = relationship(
         back_populates="service", order_by="Media.position", cascade="all, delete-orphan"
@@ -196,6 +228,8 @@ class Hairdresser(Base):
     # Multiplie la durée de base d'une prestation (1.00 = standard, < 1 = plus rapide).
     duration_coefficient: Mapped[Decimal] = mapped_column(Numeric(4, 2), default=Decimal("1.00"))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # « Supprimée » par l'admin : n'apparaît plus nulle part, mais son historique et ses coordonnées restent.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     user: Mapped[User] = relationship()
     slots: Mapped[list["AvailabilitySlot"]] = relationship(cascade="all, delete-orphan")
@@ -268,9 +302,17 @@ class Appointment(Base):
     computed_duration_min: Mapped[int] = mapped_column(Integer)
     estimated_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))  # NULL = à confirmer
     final_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))  # saisi au salon
+    # Demande sur mesure : prix proposé par le salon, que la cliente accepte ou refuse (lien dans son message).
+    quoted_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    quote_proposed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    quote_proposed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    quote_decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    quote_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)  # empreinte du lien
+    quote_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancel_reason: Mapped[str | None] = mapped_column(String(40))  # client, quote_declined, quote_expired, admin…
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    client: Mapped[User] = relationship()
+    client: Mapped[User] = relationship(foreign_keys=[client_id])
     hairdresser: Mapped[Hairdresser] = relationship()
     service: Mapped[Service] = relationship()
     resources: Mapped[list["AppointmentResource"]] = relationship(cascade="all, delete-orphan")
@@ -339,3 +381,42 @@ class FinancialRecord(Base):
     method: Mapped[str] = mapped_column(String(30), default="salon")  # cash / interac
     validated_by_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Notification(Base):
+    """Alerte dans le site (cloche + alerte du navigateur quand le site est ouvert)."""
+
+    __tablename__ = "notifications"
+    __table_args__ = (Index("ix_notifications_user_read", "user_id", "read_at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(40))
+    title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(String(1000))
+    url: Mapped[str | None] = mapped_column(String(500))  # chemin interne du site
+    appointment_id: Mapped[int | None] = mapped_column(ForeignKey("appointments.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class MessageOutbox(Base):
+    """Journal des courriels et SMS : file d'envoi, et trace de ce qui est parti (ou n'a fait que s'afficher en aperçu)."""
+
+    __tablename__ = "message_outbox"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    channel: Mapped[str] = mapped_column(String(10))  # email | sms
+    to_address: Mapped[str] = mapped_column(String(255))
+    subject: Mapped[str | None] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text)
+    # queued -> sent | failed | preview (aucun fournisseur configuré : le message est seulement visible dans l'admin)
+    status: Mapped[str] = mapped_column(String(12), default="queued", index=True)
+    provider: Mapped[str | None] = mapped_column(String(20))
+    provider_ref: Mapped[str | None] = mapped_column(String(100))
+    error: Mapped[str | None] = mapped_column(String(500))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    appointment_id: Mapped[int | None] = mapped_column(ForeignKey("appointments.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

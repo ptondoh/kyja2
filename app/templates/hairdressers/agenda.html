@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Mon agenda — KYJA BEAUTÉ{% endblock %}
+{% block content %}
+<header class="mb-6">
+  <h1>Mon agenda</h1>
+  <p class="muted">Tous les rendez-vous pris avec vous, même s'ils ne sont pas encore confirmés. Vos propres réservations comme cliente sont dans <a href="/bookings" class="link-gold">Mes rendez-vous</a>.</p>
+</header>
+<nav class="mb-8 flex flex-wrap gap-2" aria-label="Type de rendez-vous">
+  {% for key, label in types.items() %}<a href="/agenda{{ '' if key == 'all' else '?type=' ~ key }}" class="{{ 'btn-gold' if key == type else 'btn-outline' }} btn-sm" {% if key == type %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+</nav>
+{% for title, hint, items in groups %}
+<section class="mb-10" data-group="{{ title }}">
+  <h2 class="mb-1">{{ title }} <span class="muted text-base">({{ items | length }})</span></h2>
+  {% if hint %}<p class="muted mb-3">{{ hint }}</p>{% endif %}
+  <ul class="flex list-none flex-col gap-3 p-0">
+  {% for a in items %}
+    <li><a href="/agenda/{{ a.id }}" class="panel flex flex-wrap items-center justify-between gap-3 !p-4 hover:border-gold-400">
+      <span><strong class="font-display text-xl font-semibold">{{ a.service.name }}</strong>{% if a.booking_mode.value == 'custom' %} <span class="status status-confirmed">sur mesure</span>{% endif %}<br>
+        <span class="muted">{{ a.starts_at | fr_date }} · {{ a.starts_at | fr_time }} → {{ a.ends_at | fr_time }} · {{ a.client.full_name }}</span></span>
+      <span class="status status-{{ a.status.value }}">{{ status_label(a) }}</span>
+    </a></li>
+  {% else %}<li class="muted">Aucun.</li>{% endfor %}
+  </ul>
+</section>
+{% endfor %}
+{% endblock %}

@@ -11,6 +11,7 @@
 <div class="mx-auto flex max-w-3xl flex-col gap-8">
   {% if saved == 'profile' %}<p class="ok" role="status">Vos informations sont enregistrées.</p>{% endif %}
   {% if saved == 'consent' %}<p class="ok" role="status">Votre choix de communications est enregistré.</p>{% endif %}
+  {% if saved == 'notifications' %}<p class="ok" role="status">Vos choix d'alertes sont enregistrés.</p>{% endif %}
   {% if saved == 'password' %}<p class="ok" role="status">Mot de passe modifié. Vos autres appareils ont été déconnectés.</p>{% endif %}
   {% if errors %}<div class="error" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
 
@@ -41,6 +42,23 @@
           <span class="muted block">Facultatif. Vous pouvez changer d'avis à tout moment. Les rappels de rendez-vous ne dépendent pas de ce choix.</span></span></label>
       {% if marketing_since %}<p class="muted">Dernier choix enregistré le {{ marketing_since | fr_date }}.</p>{% endif %}
       <button type="submit" class="btn-outline">Enregistrer mon choix</button>
+    </form>
+  </section>
+
+  <section class="panel" id="notifications" aria-labelledby="h-notif">
+    <h2 id="h-notif" class="mb-2">Mes alertes</h2>
+    <p class="muted mb-4">Choisissez comment être avertie, par exemple quand le salon vous propose un prix final pour une demande sur mesure.</p>
+    {% if request.query_params.get('saved') == 'notifications-partial' %}<p class="error mb-4" role="alert">Choix enregistré, mais le SMS demande un numéro de téléphone valide dans votre profil, et le courriel une vraie adresse.</p>{% endif %}
+    <form method="post" action="/clients/me/notifications" class="card">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label class="check"><input type="checkbox" name="in_app" value="true" {% if current_user.pref_in_app %}checked{% endif %}><span>Dans le site (cloche « Alertes »)</span></label>
+      <label class="check"><input type="checkbox" name="browser_alert" value="true" {% if current_user.pref_browser_alert %}checked{% endif %}><span>Alerte du navigateur quand le site est ouvert
+        <span class="muted block">Votre navigateur vous demandera l'autorisation. <button type="button" class="link-gold" data-enable-browser-alert>Activer maintenant</button></span></span></label>
+      <label class="check"><input type="checkbox" name="email" value="true" {% if current_user.pref_email and channels.email %}checked{% endif %} {% if not channels.email %}disabled{% endif %}><span>Courriel ({{ current_user.email if channels.email else 'aucune adresse réelle' }})
+        {% if not email_ready %}<span class="muted block">Les courriels ne sont pas encore activés sur le site.</span>{% endif %}</span></label>
+      <label class="check"><input type="checkbox" name="sms" value="true" {% if current_user.pref_sms and channels.sms %}checked{% endif %} {% if not channels.sms %}disabled{% endif %}><span>SMS {% if channels.sms %}({{ current_user.phone }}){% else %}(ajoutez d'abord un numéro valide ci-dessus){% endif %}
+        <span class="muted block">Quelques messages seulement (prix à confirmer, rappels). {% if not sms_ready %}Les SMS ne sont pas encore activés sur le site.{% endif %}</span></span></label>
+      <button type="submit" class="btn-outline">Enregistrer</button>
     </form>
   </section>
 

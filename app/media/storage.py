@@ -12,6 +12,9 @@ class Storage(Protocol):
 
     def delete(self, key: str) -> None: ...
 
+    def fetch(self, key: str, dest: Path) -> None:
+        """Copie le fichier stocké vers `dest` (sauvegardes). Lève FileNotFoundError s'il manque."""
+
 
 class LocalStorage:
     """Stockage sur disque (dev). Servi sous /media-files par l'application."""
@@ -33,6 +36,9 @@ class LocalStorage:
 
     def delete(self, key: str) -> None:
         self._path(key).unlink(missing_ok=True)
+
+    def fetch(self, key: str, dest: Path) -> None:
+        shutil.copyfile(self._path(key), dest)
 
 
 class R2Storage:
@@ -64,6 +70,12 @@ class R2Storage:
 
     def delete(self, key: str) -> None:
         self.client.delete_object(Bucket=self.bucket, Key=key)
+
+    def fetch(self, key: str, dest: Path) -> None:
+        try:
+            self.client.download_file(self.bucket, key, str(dest))
+        except Exception as exc:  # fichier absent ou stockage injoignable : la sauvegarde le signale sans échouer
+            raise FileNotFoundError(key) from exc
 
 
 def get_storage() -> Storage:

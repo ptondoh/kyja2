@@ -3,19 +3,22 @@ import re
 import secrets
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth.deps import require_role
 from app.auth.security import hash_password
-from app.bookings import engine
+from app.bookings import engine, quotes
 from app.bookings.engine import BookingError
 from app.db.base import get_db
 from app.db.models.core import (
     Appointment,
+    AppointmentStatus,
+    MessageOutbox,
     AvailabilitySlot,
     Hairdresser,
     Resource,
@@ -23,7 +26,9 @@ from app.db.models.core import (
     Service,
     User,
 )
+from app.notifications import service as notifications
 from app.security_middleware import verify_csrf
+from app.services import lifecycle
 from app.templating import render
 
 router = APIRouter(
@@ -65,10 +70,14 @@ def _minutes(raw: str) -> int | None:
 def hairdressers_list(
     request: Request, db: Session = Depends(get_db), user: User = Depends(require_role(Role.admin))
 ):
+    archived = request.query_params.get("archived") == "1"
     items = db.scalars(
-        select(Hairdresser).options(selectinload(Hairdresser.user), selectinload(Hairdresser.slots)).order_by(Hairdresser.id)
+        select(Hairdresser)
+        .options(selectinload(Hairdresser.user), selectinload(Hairdresser.slots))
+        .where(Hairdresser.archived_at.is_not(None) if archived else Hairdresser.archived_at.is_(None))
+        .order_by(Hairdresser.id)
     ).all()
-    return render(request, "admin/hairdressers.html", current_user=user, items=items)
+    return render(request, "admin/hairdressers.html", current_user=user, items=items, show_archived=archived)
 
 
 @router.post("/hairdressers")
@@ -95,7 +104,10 @@ def hairdresser_create(
     coeff = _coefficient(coefficient, errors)
     if errors:
         items = db.scalars(
-            select(Hairdresser).options(selectinload(Hairdresser.user), selectinload(Hairdresser.slots)).order_by(Hairdresser.id)
+            select(Hairdresser)
+            .options(selectinload(Hairdresser.user), selectinload(Hairdresser.slots))
+            .where(Hairdresser.archived_at.is_(None))
+            .order_by(Hairdresser.id)
         ).all()
         return render(
             request, "admin/hairdressers.html", status_code=400, current_user=user, items=items,
@@ -262,21 +274,54 @@ def appointments_list(
     return render(request, "admin/appointments.html", current_user=user, items=items, now=engine.utcnow())
 
 
+@router.get("/messages")
+def messages_log(request: Request, db: Session = Depends(get_db), user: User = Depends(require_role(Role.admin))):
+    """Journal des courriels et SMS. « aperçu » = aucun fournisseur configuré, rien n'est parti."""
+    rows = db.scalars(select(MessageOutbox).order_by(MessageOutbox.id.desc()).limit(100)).all()
+    from app.notifications import providers
+
+    return render(
+        request, "admin/messages.html", current_user=user, rows=rows,
+        email_ready=providers.email_configured(), sms_ready=providers.sms_configured(),
+    )  # fmt: skip
+
+
+@router.post("/messages/{message_id}/retry")
+def messages_retry(message_id: int, background: BackgroundTasks, db: Session = Depends(get_db)):
+    row = db.get(MessageOutbox, message_id)
+    if not row or row.status not in ("failed", "queued"):
+        raise HTTPException(status_code=404)
+    row.attempts = 0
+    row.status = "queued"
+    db.commit()
+    background.add_task(notifications.deliver_in_background, [row.id])
+    return _redirect("/admin/messages")
+
+
 @router.post("/appointments/{appointment_id}/final-price")
 def appointment_final_price(
-    appointment_id: int, price: str = Form(...), db: Session = Depends(get_db)
+    appointment_id: int,
+    background: BackgroundTasks,
+    price: str = Form(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(Role.admin)),
 ):
+    """Demande sur mesure en attente : PROPOSE le prix (la cliente est avertie et doit l'accepter).
+    Autres rendez-vous : enregistre le prix final payé au salon."""
     appt = db.get(Appointment, appointment_id)
     if not appt:
         raise HTTPException(status_code=404)
     try:
-        value = Decimal(price.replace(",", ".").strip())
+        value = quotes.parse_price(price)
+        if appt.status in (AppointmentStatus.pending_quote, AppointmentStatus.awaiting_client):
+            ids = quotes.propose_and_notify(db, appt, value, user)
+            background.add_task(notifications.deliver_in_background, ids)
+            return _redirect("/admin/appointments?quoted=1")
         if value != value.quantize(Decimal("0.01")) or not (Decimal("0") <= value <= Decimal("99999.99")):
-            raise InvalidOperation
+            raise BookingError("Prix invalide (2 décimales max).")
         engine.set_final_price(db, appt, value)
-    except (InvalidOperation, BookingError) as exc:
-        msg = str(exc) if isinstance(exc, BookingError) else "Prix invalide (2 décimales max)."
-        raise HTTPException(status_code=400, detail=msg) from None
+    except BookingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
     return _redirect("/admin/appointments")
 
 
@@ -286,7 +331,7 @@ def appointment_cancel(appointment_id: int, db: Session = Depends(get_db)):
     if not appt:
         raise HTTPException(status_code=404)
     try:
-        engine.cancel_booking(db, appt)
+        engine.cancel_booking(db, appt, reason="admin")
     except BookingError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
     return _redirect("/admin/appointments")
@@ -382,3 +427,44 @@ def appointment_new(
             db.commit()
         return fail(str(exc))
     return _redirect(f"/admin/appointments?created={appt.id}")
+
+
+# --- « Supprimer » une coiffeuse = l'archiver : historique et coordonnées conservés ----------------------------------
+
+
+@router.get("/hairdressers/{hairdresser_id}/delete")
+def hairdresser_delete_page(
+    request: Request, hairdresser_id: int, db: Session = Depends(get_db), user: User = Depends(require_role(Role.admin))
+):
+    h = _hairdresser_or_404(db, hairdresser_id)
+    return render(
+        request, "admin/hairdresser_delete.html", current_user=user, item=h,
+        future=lifecycle.future_count(db, hairdresser_id=h.id), past=lifecycle.has_history(db, hairdresser_id=h.id),
+    )  # fmt: skip
+
+
+@router.post("/hairdressers/{hairdresser_id}/delete")
+def hairdresser_delete(
+    request: Request,
+    hairdresser_id: int,
+    cancel_future: bool = Form(False),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(Role.admin)),
+):
+    h = _hairdresser_or_404(db, hairdresser_id)
+    try:
+        cancelled = lifecycle.archive_hairdresser(db, h, cancel_future=cancel_future)
+    except lifecycle.InUse as exc:
+        n = exc.blockers[0][1]
+        return render(
+            request, "admin/hairdresser_delete.html", status_code=400, current_user=user, item=h, future=n,
+            past=lifecycle.has_history(db, hairdresser_id=h.id),
+            errors=[f"{n} rendez-vous à venir sont prévus avec elle. Cochez la case pour les annuler, ou annulez-les d'abord."],
+        )  # fmt: skip
+    return _redirect(f"/admin/hairdressers?removed={quote(h.user.full_name)}&cancelled={cancelled}")
+
+
+@router.post("/hairdressers/{hairdresser_id}/restore")
+def hairdresser_restore(hairdresser_id: int, db: Session = Depends(get_db)):
+    lifecycle.restore_hairdresser(db, _hairdresser_or_404(db, hairdresser_id))
+    return _redirect(f"/admin/hairdressers/{hairdresser_id}?saved=1")

@@ -41,7 +41,7 @@ def admin(client):
 
 
 def create_service(c, name="TEST Brushing", **over):
-    data = {"name": name, "category": "coiffure", "description": "Brushing", "base_duration_min": "45",
+    data = {"name": name, "category_id": "", "description": "Brushing", "base_duration_min": "45",
             "buffer_min": "10", "price": "55.00", "is_active": "true", "csrf_token": csrf(c)}  # fmt: skip
     data.update(over)
     return c.post("/admin/services", data=data)

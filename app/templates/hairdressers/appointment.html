@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Rendez-vous — Mon agenda{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-2xl">
+  <a href="/agenda" class="link-gold text-sm">← Mon agenda</a>
+  {% if sent %}<div class="ok mt-4" role="status">Prix envoyé à la cliente, selon les canaux qu'elle a choisis (site, courriel ou SMS).</div>{% endif %}
+  {% if error %}<div class="error mt-4" role="alert">{{ error }}</div>{% endif %}
+  <h1 class="mb-2 mt-6">{{ appt.service.name }}</h1>
+  <p><span class="status status-{{ appt.status.value }}">{{ status_label(appt) }}</span>{% if appt.status.value == 'cancelled' and cancel_reason(appt) %} <span class="muted">{{ cancel_reason(appt) }}</span>{% endif %}</p>
+  <div class="panel mt-6">
+    <dl class="recap">
+      <dt>Cliente</dt><dd>{{ appt.client.full_name }}{% if appt.client.phone %} · {{ appt.client.phone }}{% endif %}</dd>
+      <dt>Date</dt><dd>{{ appt.starts_at | fr_date }}</dd>
+      <dt>Horaire</dt><dd>{{ appt.starts_at | fr_time }} → {{ appt.ends_at | fr_time }} <span class="muted">({{ appt.computed_duration_min | fr_duration }})</span></dd>
+      <dt>Prix</dt><dd>{% if appt.final_price is not none %}{{ appt.final_price | money }} <span class="muted">(final)</span>{% elif appt.quoted_price is not none %}{{ appt.quoted_price | money }} <span class="muted">(proposé)</span>{% elif appt.estimated_price is not none %}{{ appt.estimated_price | money }} <span class="muted">(estimation)</span>{% else %}à proposer{% endif %}</dd>
+      {% if appt.client_notes %}<dt>Demande de la cliente</dt><dd class="whitespace-pre-line text-base">{{ appt.client_notes }}</dd>{% endif %}
+      {% if appt.photos %}<dt>Photos d'inspiration ({{ appt.photos | length }})</dt>
+      <dd><ul class="photo-grid" data-lightbox>{% for ph in appt.photos %}<li class="photo-card"><a href="/bookings/photos/{{ ph.id }}" data-lightbox-item data-type="image"><img src="/bookings/photos/{{ ph.id }}" alt="Photo d'inspiration {{ loop.index }}" loading="lazy"></a></li>{% endfor %}</ul></dd>{% endif %}
+    </dl>
+    {% if appt.booking_mode.value == 'custom' and appt.status.value in ('pending_quote', 'awaiting_client') and appt.starts_at > now %}
+    <form method="post" action="/agenda/{{ appt.id }}/quote" class="flex flex-wrap items-end gap-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label class="grow">{{ 'Nouveau prix (remplace le précédent)' if appt.status.value == 'awaiting_client' else 'Prix final à proposer' }}
+        <input type="text" name="price" inputmode="decimal" required placeholder="ex. 120 ou 120,50"></label>
+      <button type="submit" class="btn-gold">{{ 'Renvoyer' if appt.status.value == 'awaiting_client' else 'Envoyer à la cliente' }}</button>
+    </form>
+    <p class="muted mt-3">La cliente reçoit le prix avec un lien pour le confirmer ou l'annuler. Elle ne paie rien en ligne.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

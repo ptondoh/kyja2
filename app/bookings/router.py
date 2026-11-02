@@ -20,6 +20,7 @@ from app.bookings.photos import MAX_PHOTOS, PhotoRejected
 from app.config import get_settings
 from app.db.base import get_db
 from app.db.models.core import (
+    ACTIVE_STATUSES,
     Appointment,
     AppointmentStatus,
     BookingPhoto,
@@ -31,6 +32,8 @@ from app.db.models.core import (
 )
 from app.db.models.settings import get_int_setting
 from app.media.storage import get_private_storage
+from app.notifications import messages
+from app.notifications import service as notifications
 from app.security_middleware import verify_csrf
 from app.services.router import ready_media
 from app.templating import render
@@ -171,9 +174,10 @@ def new_booking(
             Service.is_active.is_(True),
             Service.pricing_mode == wanted,
             Service.is_custom_request.is_(False),  # la demande intégrée n'est pas une « coiffure » du catalogue
+            Service.archived_at.is_(None),
         )
-        .order_by(Service.category, Service.name)
-    ).all()
+    ).unique().all()
+    services.sort(key=lambda s: (s.category is None, s.category.name.lower() if s.category else "", s.name.lower()))
     if mode == "custom" and not services:
         # Cas normal à l'installation : aucune prestation « sur devis » créée -> formulaire direct.
         return RedirectResponse(f"/bookings/new/{engine.custom_request_service(db).id}", status_code=303)
@@ -462,6 +466,8 @@ def confirm(
             request, db, user, service, status_code=409 if isinstance(exc, SlotUnavailable) else 400,
             error=str(exc), notes=notes, selected_hairdresser=hairdresser,
         )  # fmt: skip
+    title, body = messages.staff_new_request(appt)
+    notifications.notify_staff(db, appt, kind="new_booking", title=title, body=body)
     response = RedirectResponse(f"/bookings/{appt.id}?new=1", status_code=303)
     drafts.delete_draft(db, drafts.token_from(request))  # le brouillon a servi
     drafts.clear_cookie(response)
@@ -496,7 +502,7 @@ def my_bookings(request: Request, db: Session = Depends(get_db), user: User = De
         .where(Appointment.client_id == user.id)
         .order_by(Appointment.starts_at)
     ).all()
-    upcoming = [a for a in rows if a.status == AppointmentStatus.confirmed and a.starts_at > now]
+    upcoming = [a for a in rows if a.status in ACTIVE_STATUSES and a.starts_at > now]
     past = [a for a in reversed(rows) if a not in upcoming]
     return render(request, "bookings/mine.html", current_user=user, upcoming=upcoming, past=past, now=now)
 
@@ -516,7 +522,10 @@ def booking_detail(
 def cancel(appointment_id: int, db: Session = Depends(get_db), user: User = Depends(require_login)):
     appt = _load_owned(db, appointment_id, user)
     try:
-        engine.cancel_booking(db, appt)
+        engine.cancel_booking(db, appt, reason="client" if appt.client_id == user.id else "admin")
     except BookingError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
+    if appt.client_id == user.id:
+        title, body = messages.staff_cancelled_by_client(appt)
+        notifications.notify_staff(db, appt, kind="cancelled", title=title, body=body)
     return RedirectResponse(f"/bookings/{appt.id}?cancelled=1", status_code=303)

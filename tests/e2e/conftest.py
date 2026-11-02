@@ -92,3 +92,11 @@ def choose_hairdresser(page, choice_locator) -> None:
     """Choisit une coiffeuse puis attend le rechargement du calendrier (ses jours disponibles changent)."""
     with page.expect_response(lambda r: "/bookings/calendar" in r.url and r.status == 200):
         choice_locator.click()
+
+
+def confirm_catalog_booking(page) -> None:
+    """Confirme une coiffure du catalogue : la fenêtre « le prix est estimatif » s'ouvre, on l'accepte."""
+    page.click("text=Confirmer la réservation")
+    dialog = page.locator("#price-dialog")
+    dialog.wait_for(state="visible")
+    dialog.locator("text=J'ai compris, confirmer").click()

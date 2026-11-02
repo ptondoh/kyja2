@@ -8,7 +8,7 @@
     <div class="tile pointer-events-none">
       <div class="cover">{{ cover(service.media | selectattr('status.value', 'equalto', 'ready') | list) }}</div>
       <div class="info">
-        {% if service.category %}<p class="eyebrow">{{ service.category }}</p>{% endif %}
+        {% if service.category %}<p class="eyebrow">{{ service.category.name }}</p>{% endif %}
         <h2>{{ service.name }}</h2>
         <p class="price">{{ service_price(service) }}</p>
         <p class="muted">Durée de base : {{ service.base_duration_min | fr_duration }}</p>

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth.security import hash_password
 from app.auth.service import revoke_all_tokens
 from app.db.models.core import (
+    ACTIVE_STATUSES,
     Appointment,
     AppointmentStatus,
     BookingPhoto,
@@ -142,10 +143,10 @@ def forget_user(db: Session, user: User, now: datetime | None = None) -> dict:
         update(Appointment)
         .where(
             Appointment.client_id == user.id,
-            Appointment.status == AppointmentStatus.confirmed,
+            Appointment.status.in_(ACTIVE_STATUSES),
             Appointment.starts_at > now,
         )
-        .values(status=AppointmentStatus.cancelled)  # libère les créneaux
+        .values(status=AppointmentStatus.cancelled, cancel_reason="account_deleted", quote_token_hash=None)  # libère les créneaux
     ).rowcount
 
     # Les descriptions écrites par la cliente sont des données personnelles : effacées. Le reste de la

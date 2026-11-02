@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Supprimer {{ product.name }} — Admin{% endblock %}
+{% block content %}
+<a href="/admin/products/{{ product.id }}" class="link-gold text-sm">← {{ product.name }}</a>
+<h1 class="mb-6 mt-4">Supprimer « {{ product.name }} »</h1>
+<div class="panel mx-auto max-w-2xl">
+  <p class="text-ink-soft">Ce produit sera <strong class="font-medium">supprimé définitivement</strong>, avec ses photos et vidéos ({{ product.media | length }}). Il disparaît du site.</p>
+  <form method="post" action="/admin/products/{{ product.id }}/delete" class="mt-6 flex flex-wrap gap-3">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn-danger !py-3 !text-sm">Supprimer définitivement</button>
+    <a href="/admin/products/{{ product.id }}" class="btn-outline">Annuler</a>
+  </form>
+</div>
+{% endblock %}

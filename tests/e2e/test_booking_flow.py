@@ -7,7 +7,7 @@ from playwright.sync_api import expect
 from app.auth.security import hash_password
 from app.db.base import SessionLocal
 from app.db.models.core import PricingMode, Role, User
-from tests.e2e.conftest import SHOTS, choose_hairdresser, pick_day
+from tests.e2e.conftest import SHOTS, choose_hairdresser, confirm_catalog_booking, pick_day
 from tests.conftest import make_hairdresser, make_service, next_weekday
 
 CLIENT = ("cliente-e2e@test.kyja", "client password 12")
@@ -101,7 +101,7 @@ def test_visitor_books_then_signs_up_at_the_end(page, shot, salon):
     shot("23b-reservation-reprise")
 
     # 6. confirmation
-    page.click("text=Confirmer la réservation")
+    confirm_catalog_booking(page)
     expect(page.locator("[role=status]")).to_contain_text("Rendez-vous confirmé")
     shot("24-reservation-confirmee")
     page.click("text=Mes rendez-vous >> nth=0")
@@ -140,7 +140,7 @@ def test_custom_booking_requires_description_and_shows_no_price(page, shot, salo
     expect(recap).to_contain_text("assignée automatiquement")
     expect(recap).to_contain_text("2 h")  # 120 min x coefficient (1,0 ou 1,3 selon la coiffeuse assignée)
     page.click("text=Confirmer la réservation")
-    expect(page.locator("[role=status]")).to_contain_text("Rendez-vous confirmé")
+    expect(page.locator("[role=status]")).to_contain_text("Demande reçue")
     assert page.console_errors == []
 
 
@@ -166,9 +166,9 @@ def test_two_clients_cannot_take_the_same_slot(browser, base_url, salon):
 
     ctx1, p1 = open_pick(CLIENT)
     ctx2, p2 = open_pick(("seconde@test.kyja", "client password 12"))  # les deux voient le même créneau libre
-    p1.click("text=Confirmer la réservation")
+    confirm_catalog_booking(p1)
     expect(p1.locator("[role=status]")).to_contain_text("Rendez-vous confirmé")
-    p2.click("text=Confirmer la réservation")  # trop tard : créneau pris entre-temps
+    confirm_catalog_booking(p2)  # trop tard : créneau pris entre-temps
     expect(p2.locator(".error")).to_contain_text("vient d'être réservé")
     expect(p2.locator(".cal")).to_be_visible()  # retour au choix de créneau
     ctx1.close()
@@ -185,7 +185,7 @@ def test_admin_sets_final_price_and_client_sees_it(browser, base_url, page, salo
     expect(page.locator("#slots .slot").first).to_be_visible()
     page.locator("#slots .slot", has_text=re.compile(r"^11 h$")).click()
     page.click("text=Voir le récapitulatif")
-    page.click("text=Confirmer la réservation")
+    confirm_catalog_booking(page)
     detail_url = page.url.split("?")[0]
 
     ctx = browser.new_context(base_url=base_url)

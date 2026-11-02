@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Catégories — Admin{% endblock %}
+{% block content %}
+<a href="/admin" class="link-gold text-sm">← Administration</a>
+<h1 class="mb-2 mt-4">Catégories</h1>
+<p class="muted mb-6">Les catégories regroupent les prestations (ex : Coiffure, Coloration, Soins). Elles apparaissent en liste déroulante quand vous créez une prestation, et comme filtres sur le site.</p>
+
+{% if request.query_params.get('saved') == 'created' %}<p class="ok mb-5" role="status">Catégorie créée.</p>{% endif %}
+{% if request.query_params.get('saved') == 'renamed' %}<p class="ok mb-5" role="status">Catégorie renommée.</p>{% endif %}
+{% if request.query_params.get('removed') is not none %}
+<p class="ok mb-5" role="status">Catégorie supprimée : {{ request.query_params.get('removed') }} prestation(s) effacée(s){% if request.query_params.get('archived') != '0' %}, {{ request.query_params.get('archived') }} archivée(s) pour conserver l'historique des rendez-vous{% endif %}.</p>
+{% endif %}
+{% if errors %}<div class="error mb-5" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+
+<div class="grid gap-8 lg:grid-cols-[1fr_22rem]">
+  <div class="panel overflow-x-auto !p-2">
+    <table class="admin-table">
+      <thead><tr><th>Nom</th><th>Prestations</th><th></th></tr></thead>
+      <tbody>
+      {% for c, count in rows %}
+      <tr>
+        <td>
+          <form method="post" action="/admin/categories/{{ c.id }}" class="inline-flex items-center gap-2">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="text" name="name" value="{{ c.name }}" required maxlength="100" aria-label="Nom de la catégorie {{ c.name }}" class="!w-48 !py-1.5 !text-sm">
+            <button type="submit" class="btn-outline btn-sm">Renommer</button>
+          </form>
+        </td>
+        <td>{{ count }}</td>
+        <td><a href="/admin/categories/{{ c.id }}/delete" class="btn-danger">Supprimer…</a></td>
+      </tr>
+      {% else %}<tr><td colspan="3" class="muted">Aucune catégorie. Créez la première →</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <h2 class="mb-4">Nouvelle catégorie</h2>
+    <form method="post" action="/admin/categories" class="card">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>Nom <input type="text" name="name" required maxlength="100" value="{{ new_name or '' }}" placeholder="Coiffure"></label>
+      <button type="submit" class="btn-gold">Créer</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

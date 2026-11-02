@@ -61,7 +61,7 @@ def test_visitor_custom_request_with_photos_then_login(page, shot, salon_no_acco
     expect(page.locator(".recap")).to_contain_text("Photos d'inspiration (2)")
     expect(page.locator(".recap .photo-grid img")).to_have_count(2)
     page.click("text=Confirmer la réservation")
-    expect(page.locator("[role=status]")).to_contain_text("Rendez-vous confirmé")
+    expect(page.locator("[role=status]")).to_contain_text("Demande reçue")
     expect(page.locator(".recap .photo-grid img")).to_have_count(2)
 
     with SessionLocal() as db:

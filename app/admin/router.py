@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth.deps import require_role
 from app.config import get_settings
 from app.db.base import get_db
-from app.db.models.core import Media, PricingMode, Product, Role, Service, ServiceResource, User
+from app.db.models.core import Category, Media, PricingMode, Product, Role, Service, ServiceResource, User
 from app.db.models.settings import get_int_setting, get_setting, set_setting
 from app.salon import reset_cache as reset_salon_cache
 from app.media import service as media_service
@@ -154,13 +154,15 @@ def settings_save(
 def services_list(
     request: Request, db: Session = Depends(get_db), user: User = Depends(require_role(Role.admin))
 ):
-    items = db.scalars(select(Service).order_by(Service.name)).all()
-    return render(request, "admin/services.html", current_user=user, items=items)
+    archived = request.query_params.get("archived") == "1"
+    q = select(Service).order_by(Service.name)
+    q = q.where(Service.archived_at.is_not(None) if archived else Service.archived_at.is_(None))
+    return render(request, "admin/services.html", current_user=user, items=db.scalars(q).all(), show_archived=archived)
 
 
 @router.get("/services/new")
-def service_new(request: Request, user: User = Depends(require_role(Role.admin))):
-    return render(request, "admin/service_form.html", current_user=user, item=None, media=[])
+def service_new(request: Request, db: Session = Depends(get_db), user: User = Depends(require_role(Role.admin))):
+    return render(request, "admin/service_form.html", current_user=user, item=None, media=[], categories=_categories(db))
 
 
 KIND_RE = re.compile(r"^[a-z0-9_]{1,50}$")
@@ -173,11 +175,26 @@ def _kinds(raw: str, errors: list[str]) -> list[str]:
     return kinds
 
 
-def _service_fields(name, category, description, duration, buffer, price, pricing_mode, errors):
+def _categories(db: Session) -> list[Category]:
+    return list(db.scalars(select(Category).order_by(Category.name)))
+
+
+def _category_id(db: Session, raw: str, errors: list[str]) -> int | None:
+    """« » = sans catégorie ; sinon l'identifiant d'une catégorie qui existe (liste déroulante)."""
+    raw = raw.strip()
+    if not raw:
+        return None
+    if raw.isdigit() and db.get(Category, int(raw)):
+        return int(raw)
+    errors.append("Catégorie invalide : choisissez-en une dans la liste.")
+    return None
+
+
+def _service_fields(db, name, category_id, description, duration, buffer, price, pricing_mode, errors):
     mode = PricingMode.quote if pricing_mode == "quote" else PricingMode.estimate
     return {
         "name": _name(name, errors),
-        "category": category.strip()[:100] or None,
+        "category_id": _category_id(db, category_id, errors),
         "description": description.strip() or None,
         "base_duration_min": _int(duration, "Durée", 5, 600, errors),
         "buffer_min": _int(buffer or "0", "Temps de repos", 0, 180, errors),
@@ -193,7 +210,7 @@ def service_save(
     request: Request,
     service_id: int | None = None,
     name: str = Form(""),
-    category: str = Form(""),
+    category_id: str = Form(""),
     description: str = Form(""),
     base_duration_min: str = Form(""),
     buffer_min: str = Form("0"),
@@ -208,15 +225,15 @@ def service_save(
     if service_id and not item:
         raise HTTPException(status_code=404)
     errors: list[str] = []
-    fields = _service_fields(name, category, description, base_duration_min, buffer_min, price, pricing_mode, errors)
+    fields = _service_fields(db, name, category_id, description, base_duration_min, buffer_min, price, pricing_mode, errors)
     kinds = _kinds(required_kinds, errors)
     if errors:
         form = {**fields, "name": name, "price": price, "base_duration_min": base_duration_min,
                 "buffer_min": buffer_min, "is_active": is_active, "pricing_mode": pricing_mode,
-                "kinds": required_kinds}  # fmt: skip
+                "kinds": required_kinds, "category_id": category_id}  # fmt: skip
         return render(
             request, "admin/service_form.html", status_code=400, current_user=user,
-            item=item, form=form, errors=errors, media=item.media if item else [],
+            item=item, form=form, errors=errors, media=item.media if item else [], categories=_categories(db),
         )  # fmt: skip
     if not item:
         item = Service()
@@ -224,6 +241,8 @@ def service_save(
     for k, v in fields.items():
         setattr(item, k, v)
     item.is_active = is_active
+    if is_active:
+        item.archived_at = None  # rendre une prestation archivée « visible » la restaure
     db.flush()
     item.resource_types = [ServiceResource(service_id=item.id, resource_kind=k) for k in kinds]
     db.commit()
@@ -243,7 +262,7 @@ def service_edit(
     if not item:
         raise HTTPException(status_code=404)
     return render(
-        request, "admin/service_form.html", current_user=user, item=item, media=item.media
+        request, "admin/service_form.html", current_user=user, item=item, media=item.media, categories=_categories(db)
     )
 
 

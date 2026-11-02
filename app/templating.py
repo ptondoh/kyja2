@@ -41,8 +41,35 @@ def money(value: Decimal | None) -> str:
     return "—" if value is None else f"{value:.2f} $ CAD"
 
 
+STATUS_LABELS = {
+    "pending_quote": "Prix à proposer",
+    "awaiting_client": "En attente de la cliente",
+    "confirmed": "Confirmé",
+    "completed": "Terminé",
+    "cancelled": "Annulé",
+}
+CANCEL_REASONS = {
+    "client": "annulé par la cliente",
+    "quote_declined": "prix refusé par la cliente",
+    "quote_expired": "prix sans réponse",
+    "account_deleted": "compte supprimé",
+    "hairdresser_removed": "coiffeuse retirée",
+    "admin": "annulé par le salon",
+}
+
+
+def status_label(appt) -> str:
+    return STATUS_LABELS[appt.status.value]
+
+
+def cancel_reason(appt) -> str:
+    return CANCEL_REASONS.get(appt.cancel_reason or "", "")
+
+
 templates.env.filters.update(fr_date=fr_date, fr_month=fr_month, fr_time=fr_time, fr_duration=fr_duration, money=money)
 templates.env.globals["weekdays"] = _JOURS
+templates.env.globals["status_label"] = status_label
+templates.env.globals["cancel_reason"] = cancel_reason
 templates.env.globals["salon_phone"] = salon_phone
 
 

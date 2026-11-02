@@ -3,6 +3,12 @@
 {% block content %}
 <a href="/admin/hairdressers" class="link-gold text-sm">← Coiffeuses</a>
 <h1 class="mb-6 mt-4">{{ item.user.full_name }}</h1>
+{% if item.archived_at %}
+<div class="error mb-6 flex flex-wrap items-center justify-between gap-3" role="status">
+  <span>Cette coiffeuse est <strong class="font-medium">archivée</strong> : elle n'apparaît plus dans la réservation. Son historique et ses coordonnées sont conservés.</span>
+  <form method="post" action="/admin/hairdressers/{{ item.id }}/restore"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn-outline btn-sm">Restaurer</button></form>
+</div>
+{% endif %}
 {% if request.query_params.get('saved') %}<p class="ok mb-5">Enregistré.</p>{% endif %}
 {% if errors %}<div class="error mb-5" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
 <div class="grid gap-8 lg:grid-cols-2">
@@ -17,6 +23,7 @@
       <button type="submit" class="btn-gold">Enregistrer</button>
       <p class="muted">Modifier le coefficient n'affecte pas les rendez-vous déjà pris.</p>
     </form>
+    {% if not item.archived_at %}<p class="mt-6 border-t border-line pt-4"><a href="/admin/hairdressers/{{ item.id }}/delete" class="btn-danger">Supprimer cette coiffeuse…</a></p>{% endif %}
   </div>
   <div class="panel">
     <h2 class="mb-4">Disponibilités hebdomadaires</h2>

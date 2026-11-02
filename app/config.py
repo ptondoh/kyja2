@@ -19,6 +19,12 @@ class Settings(BaseSettings):
 
     resend_api_key: str = ""
     email_from: str = "KYJA BEAUTÉ <no-reply@example.com>"
+    # SMS (Twilio) : tant que ces trois valeurs manquent, les SMS restent en « aperçu » (rien n'est envoyé).
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_from: str = ""
+    # Adresse publique du site, pour les liens des courriels et SMS (ex. https://www.kyjabeaute.ca).
+    public_base_url: str = "http://localhost:8000"
 
     salon_timezone: str = "America/Toronto"
 

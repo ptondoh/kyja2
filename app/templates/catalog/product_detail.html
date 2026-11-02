@@ -8,7 +8,9 @@
   <aside class="order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start">
     <h1 class="text-4xl">{{ product.name }}</h1>
     <p class="price mt-3 text-3xl">{{ price(product.price) }}</p>
-    {% if product.stock <= 0 %}<p class="muted mt-1">Rupture de stock</p>{% else %}<p class="muted mt-1">En stock</p>{% endif %}
+    {% if product.stock <= 0 %}<p class="muted mt-1">Rupture de stock</p>
+    {% elif product.stock <= 5 %}<p class="muted mt-1">En stock <span class="font-medium text-danger" data-low-stock>({{ product.stock }})</span></p>
+    {% else %}<p class="muted mt-1">En stock</p>{% endif %}
     {% if product.description %}<p class="desc mt-6 text-base">{{ product.description }}</p>{% endif %}
     <div class="panel mt-6 !p-4 text-sm text-muted">Paiement au salon (Cash / Interac).</div>
   </aside>

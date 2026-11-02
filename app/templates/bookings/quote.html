@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Votre prix — KYJA BEAUTÉ{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-xl">
+  {% if appt is none %}
+  <h1 class="mb-3">Lien non valide</h1>
+  <p class="muted">Ce lien n'est pas valide ou a déjà servi. Si vous avez déjà répondu, rien d'autre à faire. Sinon, ouvrez « Mes rendez-vous » après vous être connectée.</p>
+  <a href="/bookings" class="btn-outline mt-5">Mes rendez-vous</a>
+  {% elif done == 'accept' %}
+  <div class="ok" role="status"><strong class="font-medium">Rendez-vous confirmé.</strong> Prix accepté : {{ appt.quoted_price | money }}. Nous vous attendons le {{ appt.starts_at | fr_date }} à {{ appt.starts_at | fr_time }}.</div>
+  {% elif done == 'decline' %}
+  <div class="ok" role="status"><strong class="font-medium">Rendez-vous annulé.</strong> Merci de nous avoir répondu : le créneau est libéré. Vous pouvez réserver à nouveau quand vous voulez.</div>
+  <a href="/bookings/new" class="btn-gold mt-5">Nouvelle réservation</a>
+  {% elif open %}
+  <h1 class="mb-2">Votre prix est prêt</h1>
+  <div class="panel mt-4">
+    <dl class="recap">
+      <dt>Prestation</dt><dd>{{ appt.service.name }}</dd>
+      <dt>Date</dt><dd>{{ appt.starts_at | fr_date }} · {{ appt.starts_at | fr_time }} → {{ appt.ends_at | fr_time }}</dd>
+      <dt>Coiffeuse</dt><dd>{{ appt.hairdresser.user.full_name }}</dd>
+      <dt>Prix final proposé</dt><dd class="font-display text-3xl font-semibold text-gold-400">{{ appt.quoted_price | money }}</dd>
+      <dt>Paiement</dt><dd>Au salon (Cash / Interac)</dd>
+    </dl>
+    <p class="muted mb-4">Valable jusqu'au {{ appt.quote_expires_at | fr_date }}. Le créneau vous est réservé jusque-là.</p>
+    <form method="post" action="/quotes/{{ token }}" class="flex flex-wrap gap-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" name="decision" value="accept" class="btn-gold">J'accepte ce prix</button>
+      <button type="submit" name="decision" value="decline" class="btn-danger">Je refuse : annuler le rendez-vous</button>
+    </form>
+  </div>
+  {% else %}
+  <h1 class="mb-3">Cette proposition n'est plus valable</h1>
+  <p class="muted">{% if appt.status.value == 'cancelled' %}Ce rendez-vous est annulé.{% else %}Le délai est dépassé ou la réponse a déjà été donnée.{% endif %} Appelez le salon{% if salon_phone() %} au {{ salon_phone() }}{% endif %} ou réservez à nouveau.</p>
+  <a href="/bookings/new" class="btn-gold mt-5">Nouvelle réservation</a>
+  {% endif %}
+</div>
+{% endblock %}
