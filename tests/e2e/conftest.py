@@ -47,8 +47,11 @@ def base_url():
 def browser():
     with sync_playwright() as p:
         # E2E_HEADED=1 : fenêtre visible ; E2E_SLOWMO=500 : ralentit chaque action (en ms).
+        # E2E_BROWSER : « msedge » (défaut, déjà présent sous Windows), « chrome », ou « chromium »
+        # (navigateur fourni par Playwright : `playwright install chromium`).
+        channel = os.environ.get("E2E_BROWSER", "msedge")
         b = p.chromium.launch(
-            channel="msedge",
+            **({} if channel == "chromium" else {"channel": channel}),
             headless=os.environ.get("E2E_HEADED") != "1",
             slow_mo=int(os.environ.get("E2E_SLOWMO", "0")),
         )

@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "kyja-beaute"
 version = "0.1.0"
@@ -39,6 +43,10 @@ dev = [
   "requests>=2.32",
   "schemathesis>=3.34",
 ]
+
+# Seul le dossier `app` est le paquet de l'application (alembic, scripts, tests… sont des outils à côté).
+[tool.setuptools.packages.find]
+include = ["app*"]
 
 [tool.ruff]
 line-length = 100
