@@ -4,12 +4,12 @@
   <div class="cal-head">
     {% if prev_month %}
     <button type="button" class="cal-nav" aria-label="Mois précédent"
-            hx-get="/bookings/calendar" hx-vals='{"month": "{{ prev_month.strftime('%Y-%m') }}"}' hx-include="closest form" hx-target="#calendar" hx-swap="innerHTML">‹</button>
+            hx-get="{{ cal_url or '/bookings/calendar' }}" hx-vals='{"month": "{{ prev_month.strftime('%Y-%m') }}"}' hx-include="closest form" hx-target="#calendar" hx-swap="innerHTML">‹</button>
     {% else %}<span class="cal-nav is-off" aria-hidden="true">‹</span>{% endif %}
     <p class="cal-title" aria-live="polite">{{ month_first | fr_month | capitalize }}</p>
     {% if next_month %}
     <button type="button" class="cal-nav" aria-label="Mois suivant"
-            hx-get="/bookings/calendar" hx-vals='{"month": "{{ next_month.strftime('%Y-%m') }}"}' hx-include="closest form" hx-target="#calendar" hx-swap="innerHTML">›</button>
+            hx-get="{{ cal_url or '/bookings/calendar' }}" hx-vals='{"month": "{{ next_month.strftime('%Y-%m') }}"}' hx-include="closest form" hx-target="#calendar" hx-swap="innerHTML">›</button>
     {% else %}<span class="cal-nav is-off" aria-hidden="true">›</span>{% endif %}
   </div>
   <div class="cal-grid" role="group" aria-label="Choisir un jour">
@@ -19,7 +19,7 @@
       {% elif cell.available %}
       <label class="day{% if cell.today %} is-today{% endif %}">
         <input type="radio" name="day" value="{{ cell.date.isoformat() }}"
-               hx-get="/bookings/slots" hx-trigger="change" hx-target="#slots" hx-swap="innerHTML" hx-include="closest form">
+               hx-get="{{ slots_url or '/bookings/slots' }}" hx-trigger="change" hx-target="#slots" hx-swap="innerHTML" hx-include="closest form">
         <span aria-label="{{ cell.date | fr_date }}">{{ cell.date.day }}</span>
       </label>
       {% else %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Changer la date ou l'heure — KYJA BEAUTÉ{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-2xl">
+  <a href="/bookings/{{ appt.id }}" class="link-gold text-sm">← Mon rendez-vous</a>
+  <h1 class="mb-2 mt-6">Changer la date ou l'heure</h1>
+  <p class="muted">{{ appt.service.name }} avec {{ appt.hairdresser.user.full_name }} · actuellement le <strong class="font-medium text-ink">{{ appt.starts_at | fr_date }} à {{ appt.starts_at | fr_time }}</strong>
+    ({{ appt.computed_duration_min | fr_duration }}). La coiffeuse, la durée et le prix restent les mêmes. Votre horaire actuel est conservé tant que vous n'avez pas confirmé le nouveau.</p>
+  <form method="post" action="/bookings/{{ appt.id }}/reschedule" class="card mt-6" id="booking-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+    <div>
+      <h2 class="mb-3 text-2xl">Nouvelle date et heure</h2>
+      <div id="calendar">{% include "bookings/_calendar.html" %}</div>
+      <div id="slots" class="mt-4" aria-live="polite"><p class="muted">Choisissez un jour dans le calendrier pour voir les heures disponibles.</p></div>
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+      <button type="submit" class="btn-gold">Confirmer le nouvel horaire</button>
+      <a href="/bookings/{{ appt.id }}" class="btn-outline">Garder l'horaire actuel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{# Pagination : {% from "_pager.html" import pager %}{{ pager(p, request) }} — conserve les filtres de l'adresse. #}
+{% macro pager(p, request) -%}
+<nav class="pager" aria-label="Pagination">
+  <p class="muted">{% if p.total %}{{ p.first }}–{{ p.last }} sur {{ p.total }}{% else %}Aucun résultat{% endif %}</p>
+  {% if p.pages > 1 %}
+  <ul>
+    {% if p.page > 1 %}<li><a href="{{ page_url(request, p.page - 1) }}" rel="prev" aria-label="Page précédente">‹</a></li>{% endif %}
+    {% for n in p.window %}
+      {% if n is none %}<li aria-hidden="true">…</li>
+      {% elif n == p.page %}<li><a class="on" aria-current="page" href="{{ page_url(request, n) }}">{{ n }}</a></li>
+      {% else %}<li><a href="{{ page_url(request, n) }}">{{ n }}</a></li>{% endif %}
+    {% endfor %}
+    {% if p.page < p.pages %}<li><a href="{{ page_url(request, p.page + 1) }}" rel="next" aria-label="Page suivante">›</a></li>{% endif %}
+  </ul>
+  {% endif %}
+</nav>
+{%- endmacro %}

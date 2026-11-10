@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_pager.html" import pager %}
 {% block title %}Prestations — Admin{% endblock %}
 {% block content %}
 <a href="/admin" class="link-gold text-sm">← Administration</a>
@@ -18,8 +19,11 @@
 </p>
 {% endif %}
 {% if show_archived %}<p class="muted mb-4">Ces prestations ont des rendez-vous passés : elles ne sont plus visibles sur le site, mais l'historique est conservé.</p>{% endif %}
+{% from "_filters.html" import filter_form, box %}
+{{ filter_form('filters', '/admin/services', q or cat, {'archived': 1} if show_archived else {}) }}
 <div class="panel overflow-x-auto !p-2">
-<table class="admin-table"><thead><tr><th>Nom</th><th>Catégorie</th><th>Prix</th><th>Durée</th><th>{{ 'Archivée le' if show_archived else 'Actif' }}</th><th></th></tr></thead><tbody>
+<table class="admin-table"><thead><tr><th>Nom</th><th>Catégorie</th><th>Prix</th><th>Durée</th><th>{{ 'Archivée le' if show_archived else 'Actif' }}</th><th></th></tr>
+<tr class="filter-row"><th>{{ box('filters', 'q', q, 'Nom…', 'Filtrer par nom') }}</th><th>{{ box('filters', 'categorie', cat, 'Catégorie…', 'Filtrer par catégorie', categories | map(attribute='name') | list) }}</th><th></th><th></th><th></th><th></th></tr></thead><tbody>
 {% for s in items %}<tr>
   <td><a class="link-gold" href="/admin/services/{{ s.id }}">{{ s.name }}</a>{% if s.is_custom_request %} <span class="status status-confirmed">intégrée</span>{% endif %}</td>
   <td>{{ s.category.name if s.category else '—' }}</td>
@@ -33,5 +37,6 @@
   </td>
 </tr>{% else %}<tr><td colspan="6" class="muted">{{ 'Aucune prestation archivée.' if show_archived else 'Aucune prestation.' }}</td></tr>{% endfor %}
 </tbody></table>
+{{ pager(pg, request) }}
 </div>
 {% endblock %}

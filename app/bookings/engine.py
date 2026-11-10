@@ -105,12 +105,15 @@ def _required_kinds(db: Session, service_id: int) -> list[str]:
     )
 
 
-def _active_overlap(start: datetime, end: datetime):
-    return (
+def _active_overlap(start: datetime, end: datetime, exclude_id: int | None = None):
+    conditions = [
         Appointment.status.in_(ACTIVE_STATUSES),  # une demande en attente de prix occupe aussi son créneau
         Appointment.starts_at < end,
         Appointment.ends_at > start,
-    )
+    ]
+    if exclude_id is not None:  # déplacement : le rendez-vous ne bloque pas son propre nouveau créneau
+        conditions.append(Appointment.id != exclude_id)
+    return tuple(conditions)
 
 
 def _windows(db: Session, hairdresser_id: int, day: date) -> list[tuple[datetime, datetime]]:
@@ -128,7 +131,7 @@ def _windows(db: Session, hairdresser_id: int, day: date) -> list[tuple[datetime
     ]
 
 
-def _free_resource_ids(db: Session, kind: str, start: datetime, end: datetime, lock: bool) -> list[int]:
+def _free_resource_ids(db: Session, kind: str, start: datetime, end: datetime, lock: bool, exclude_id: int | None = None) -> list[int]:
     candidates = select(Resource.id).where(Resource.kind == kind, Resource.is_active.is_(True)).order_by(Resource.id)
     if lock:
         # Verrou dans une requête SÉPARÉE : après une attente de verrou, PostgreSQL ne ré-évalue pas
@@ -139,7 +142,7 @@ def _free_resource_ids(db: Session, kind: str, start: datetime, end: datetime, l
         db.scalars(
             select(AppointmentResource.resource_id)
             .join(Appointment)
-            .where(AppointmentResource.resource_id.in_(ids), *_active_overlap(start, end))
+            .where(AppointmentResource.resource_id.in_(ids), *_active_overlap(start, end, exclude_id))
         ).all()
     )
     return [i for i in ids if i not in busy]
@@ -152,12 +155,13 @@ def _bounds(db: Session, now: datetime) -> tuple[datetime, datetime]:
 
 
 def free_starts(
-    db: Session, service: Service, hairdresser: Hairdresser, day: date, now: datetime | None = None, limit: int | None = None
+    db: Session, service: Service, hairdresser: Hairdresser, day: date, now: datetime | None = None, limit: int | None = None,
+    duration_min: int | None = None, exclude_id: int | None = None,
 ) -> list[datetime]:
     """Débuts possibles (UTC) pour cette coiffeuse ce jour-là : la durée calculée doit tenir en entier."""
     now = now or utcnow()
     step = get_int_setting(db, "calendar_step_min")
-    duration = timedelta(minutes=quote_for(db, service, hairdresser).duration_min)
+    duration = timedelta(minutes=duration_min or quote_for(db, service, hairdresser).duration_min)
     earliest, latest = _bounds(db, now)
     kinds = _required_kinds(db, service.id)
 
@@ -167,7 +171,7 @@ def free_starts(
     day_start, day_end = min(w[0] for w in windows), max(w[1] for w in windows)
     busy = db.execute(
         select(Appointment.starts_at, Appointment.ends_at).where(
-            Appointment.hairdresser_id == hairdresser.id, *_active_overlap(day_start, day_end)
+            Appointment.hairdresser_id == hairdresser.id, *_active_overlap(day_start, day_end, exclude_id)
         )
     ).all()
 
@@ -177,7 +181,7 @@ def free_starts(
         while t + duration <= w_end:
             end = t + duration
             if earliest <= t <= latest and not any(b0 < end and b1 > t for b0, b1 in busy):
-                if all(_free_resource_ids(db, k, t, end, lock=False) for k in kinds):
+                if all(_free_resource_ids(db, k, t, end, lock=False, exclude_id=exclude_id) for k in kinds):
                     out.append(t)
                     if limit and len(out) >= limit:
                         return out
@@ -192,7 +196,8 @@ def active_hairdressers(db: Session) -> list[Hairdresser]:
 
 
 def available_days(
-    db: Session, service: Service, hairdresser_id: int | None, month_first: date, now: datetime | None = None
+    db: Session, service: Service, hairdresser_id: int | None, month_first: date, now: datetime | None = None,
+    duration_min: int | None = None, exclude_id: int | None = None,
 ) -> set[date]:
     """Jours du mois où au moins un créneau est réservable (pour griser le calendrier)."""
     now = now or utcnow()
@@ -204,7 +209,7 @@ def available_days(
     while day.month == month_first.month:
         if today <= day <= last:
             for h in candidates:
-                if free_starts(db, service, h, day, now, limit=1):
+                if free_starts(db, service, h, day, now, limit=1, duration_min=duration_min, exclude_id=exclude_id):
                     days.add(day)
                     break
         day += timedelta(days=1)
@@ -242,12 +247,15 @@ def custom_request_service(db: Session) -> Service:
     return svc
 
 
-def slots_for(db: Session, service: Service, hairdresser_id: int | None, day: date, now: datetime | None = None) -> list[tuple[datetime, Hairdresser]]:
+def slots_for(
+    db: Session, service: Service, hairdresser_id: int | None, day: date, now: datetime | None = None,
+    duration_min: int | None = None, exclude_id: int | None = None,
+) -> list[tuple[datetime, Hairdresser]]:
     """Créneaux proposés. `hairdresser_id=None` (« peu importe ») : première coiffeuse disponible."""
     candidates = [h for h in active_hairdressers(db) if hairdresser_id in (None, h.id)]
     chosen: dict[datetime, Hairdresser] = {}
     for h in candidates:
-        for start in free_starts(db, service, h, day, now):
+        for start in free_starts(db, service, h, day, now, duration_min=duration_min, exclude_id=exclude_id):
             chosen.setdefault(start, h)
     return sorted(chosen.items())
 
@@ -365,6 +373,64 @@ def cancel_booking(db: Session, appt: Appointment, now: datetime | None = None, 
     appt.cancel_reason = reason
     appt.quote_token_hash = None  # un lien de confirmation du prix ne doit plus servir
     db.commit()
+
+
+def reschedule_booking(db: Session, appt: Appointment, new_start: datetime, now: datetime | None = None) -> datetime:
+    """Déplace un rendez-vous confirmé : même coiffeuse, même durée, même prix. Retourne l'ancien début (UTC).
+
+    Le nouveau créneau est vérifié sous verrou (comme à la réservation) ; l'ancien reste le sien tant que
+    le déplacement n'a pas réussi, donc un échec ne fait rien perdre à la cliente.
+    """
+    now = now or utcnow()
+    if appt.status != AppointmentStatus.confirmed:
+        raise BookingError("Seul un rendez-vous confirmé peut être déplacé.")
+    if appt.starts_at <= now:
+        raise BookingError("Ce rendez-vous est déjà commencé ou passé.")
+    if new_start.tzinfo is None:
+        raise BookingError("Horaire invalide.")
+    start = new_start.astimezone(timezone.utc)
+    step = get_int_setting(db, "calendar_step_min")
+    earliest, latest = _bounds(db, now)
+    if start < earliest:
+        raise SlotUnavailable("Ce créneau est trop proche ou déjà passé.")
+    if start > latest:
+        raise BookingError("Ce créneau est trop éloigné dans le temps.")
+    if start.minute % step or start.second or start.microsecond:
+        raise BookingError("Horaire invalide.")
+    if start == appt.starts_at:
+        raise BookingError("C'est déjà l'horaire de votre rendez-vous.")
+
+    appt_id, hairdresser_id, service_id = appt.id, appt.hairdresser_id, appt.service_id
+    old_start, duration = appt.starts_at, timedelta(minutes=appt.computed_duration_min)
+    end = start + duration
+    day = start.astimezone(salon_tz()).date()
+    kinds = _required_kinds(db, service_id)
+    if db.in_transaction():
+        db.commit()
+    db.execute(text("SET LOCAL statement_timeout = '5s'"))
+    db.execute(text("SET LOCAL lock_timeout = '3s'"))
+    h = db.scalar(select(Hairdresser).where(Hairdresser.id == hairdresser_id).with_for_update())
+    appt = db.scalar(select(Appointment).where(Appointment.id == appt_id).with_for_update())
+    if appt.status != AppointmentStatus.confirmed:
+        db.rollback()
+        raise BookingError("Ce rendez-vous ne peut plus être déplacé.")
+    ok = h.is_active and h.archived_at is None and any(w0 <= start and end <= w1 for w0, w1 in _windows(db, h.id, day))
+    ok = ok and not db.scalar(select(Appointment.id).where(Appointment.hairdresser_id == h.id, *_active_overlap(start, end, appt_id)).limit(1))
+    resource_ids: list[int] = []
+    if ok:
+        for kind in kinds:
+            free = _free_resource_ids(db, kind, start, end, lock=True, exclude_id=appt_id)
+            if not free:
+                ok = False
+                break
+            resource_ids.append(free[0])
+    if not ok:
+        db.rollback()
+        raise SlotUnavailable("Ce créneau n'est plus disponible. Merci d'en choisir un autre.")
+    appt.starts_at, appt.ends_at = start, end
+    appt.resources = [AppointmentResource(resource_id=rid) for rid in resource_ids]
+    db.commit()
+    return old_start
 
 
 def set_final_price(db: Session, appt: Appointment, price: Decimal) -> None:

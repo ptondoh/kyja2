@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_pager.html" import pager %}
 {% block title %}Mes alertes — KYJA BEAUTÉ{% endblock %}
 {% block content %}
 <div class="mx-auto max-w-2xl">
@@ -18,6 +19,7 @@
     </li>
   {% else %}<li class="muted">Aucune alerte pour le moment.</li>{% endfor %}
   </ul>
+{{ pager(pg, request) }}
   {% if current_user.role.value == 'client' %}<p class="muted mt-6">Vous choisissez comment être avertie (site, courriel, SMS) dans <a href="/clients/me#notifications" class="link-gold">votre profil</a>.</p>{% endif %}
 </div>
 {% endblock %}

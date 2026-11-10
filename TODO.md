@@ -37,6 +37,9 @@ Liste vivante des choses qui attendent un accès, une décision ou du temps. Les
 - [x] Prix final d'une demande sur mesure : proposition, lien de confirmation, alertes (site, navigateur, courriel/SMS en aperçu).
 - [x] Agenda de la coiffeuse (« Mon agenda »).
 - [x] Carrousel des photos et vidéos.
+- [x] Changer la date ou l'heure d'un rendez-vous confirmé (cliente), avec alerte à la coiffeuse et à l'admin.
+- [x] Pagination et filtres des listes (rendez-vous, prestations, produits, coiffeuses, messages, alertes).
+- [x] Menu actif, cloche rouge, carrousel avec flèches, fenêtre de confirmation centrée, format des vidéos respecté.
 - [x] Réservation en ligne (2 modes), calendrier, durée calculée, photos d'inspiration.
 - [x] Profil client, export des données, droit à l'oubli.
 - [x] Catégories, suppression/archivage, sauvegarde de catégorie, stock faible, avis de prix estimatif.

@@ -12,12 +12,14 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import false, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth.deps import require_role
 from app.config import get_settings
 from app.db.base import get_db
+from app.filters import matching
+from app.pagination import like, paginate
 from app.db.models.core import Category, Media, PricingMode, Product, Role, Service, ServiceResource, User
 from app.db.models.settings import get_int_setting, get_setting, set_setting
 from app.salon import reset_cache as reset_salon_cache
@@ -155,9 +157,20 @@ def services_list(
     request: Request, db: Session = Depends(get_db), user: User = Depends(require_role(Role.admin))
 ):
     archived = request.query_params.get("archived") == "1"
+    text = (request.query_params.get("q") or "").strip()
+    cat = request.query_params.get("categorie", "")
     q = select(Service).order_by(Service.name)
     q = q.where(Service.archived_at.is_not(None) if archived else Service.archived_at.is_(None))
-    return render(request, "admin/services.html", current_user=user, items=db.scalars(q).all(), show_archived=archived)
+    if text:
+        q = q.where(Service.name.ilike(like(text), escape="\\"))
+    categories = db.scalars(select(Category).order_by(Category.name)).all()
+    if cat.strip():
+        q = q.where(Service.category_id.in_(select(Category.id).where(Category.name.ilike(like(cat.strip()), escape="\\"))))
+    pg = paginate(db, q, request.query_params.get("page"))
+    return render(
+        request, "admin/services.html", current_user=user, items=pg.items, pg=pg, q=text, cat=cat,
+        categories=categories, show_archived=archived,
+    )  # fmt: skip
 
 
 @router.get("/services/new")
@@ -266,6 +279,8 @@ def service_edit(
     )
 
 
+STOCK_CHOICES = {"bas": "Stock bas (5 ou moins)", "epuise": "Épuisé", "ok": "En stock"}
+
 # --- Produits ---------------------------------------------------------------
 
 
@@ -273,8 +288,20 @@ def service_edit(
 def products_list(
     request: Request, db: Session = Depends(get_db), user: User = Depends(require_role(Role.admin))
 ):
-    items = db.scalars(select(Product).order_by(Product.name)).all()
-    return render(request, "admin/products.html", current_user=user, items=items)
+    text = (request.query_params.get("q") or "").strip()
+    stock = request.query_params.get("stock", "")
+    query = select(Product).order_by(Product.name)
+    if text:
+        query = query.where(Product.name.ilike(like(text), escape="\\"))
+    by_stock = matching(stock, STOCK_CHOICES)
+    if by_stock is not None:
+        conditions = {"bas": Product.stock <= 5, "epuise": Product.stock <= 0, "ok": Product.stock > 5}
+        query = query.where(or_(*[conditions[k] for k in by_stock])) if by_stock else query.where(false())
+    pg = paginate(db, query, request.query_params.get("page"))
+    return render(
+        request, "admin/products.html", current_user=user, items=pg.items, pg=pg, q=text, stock=stock,
+        stock_choices=list(STOCK_CHOICES.values()),
+    )  # fmt: skip
 
 
 @router.get("/products/new")

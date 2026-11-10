@@ -3,13 +3,14 @@ from datetime import timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import false, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth.deps import require_role
 from app.bookings import engine, quotes
 from app.bookings.quotes import QuoteError
 from app.db.base import get_db
+from app.filters import matching
 from app.db.models.core import Appointment, AppointmentStatus, BookingMode, Hairdresser, Role, User
 from app.notifications import service as notifications
 from app.security_middleware import verify_csrf
@@ -40,18 +41,21 @@ def _load(db: Session, h: Hairdresser, appointment_id: int) -> Appointment:
 
 @router.get("")
 def agenda(
-    request: Request, type: str = "all", db: Session = Depends(get_db), user: User = Depends(require_role(Role.hairdresser))
+    request: Request, type: str = "", db: Session = Depends(get_db), user: User = Depends(require_role(Role.hairdresser))
 ):
     h = _own_hairdresser(db, user)
-    if type not in TYPES:
-        type = "all"
+    type_text = "" if type.strip().lower() == "all" else type.strip()  # zone de saisie : « sur mesure », « catalogue »… (ou custom / catalog)
+    found = matching(type_text, {k: v for k, v in TYPES.items() if k != "all"})
+    type = "all" if found is None else (found[0] if len(found) == 1 else "none")
     q = (
         select(Appointment)
         .options(selectinload(Appointment.client), selectinload(Appointment.service))
         .where(Appointment.hairdresser_id == h.id)
         .order_by(Appointment.starts_at)
     )
-    if type != "all":
+    if type == "none":  # le texte tapé ne correspond à aucun type
+        q = q.where(false())
+    elif type != "all":
         q = q.where(Appointment.booking_mode == BookingMode(type))
     rows = db.scalars(q).all()
     now = engine.utcnow()
@@ -67,7 +71,7 @@ def agenda(
         ("Confirmés à venir", "", upcoming(AppointmentStatus.confirmed)),
         ("Passés et annulés", "", past),
     ]
-    return render(request, "hairdressers/agenda.html", current_user=user, groups=groups, types=TYPES, type=type, now=now)
+    return render(request, "hairdressers/agenda.html", current_user=user, groups=groups, types={k: v for k, v in TYPES.items() if k != 'all'}, type=type, type_text=type_text, now=now)
 
 
 @router.get("/{appointment_id}")

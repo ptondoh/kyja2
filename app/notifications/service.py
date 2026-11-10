@@ -1,4 +1,5 @@
 """Avertir les personnes : alerte dans le site, courriel et SMS, selon le choix de chacune."""
+import threading
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select, update
@@ -49,9 +50,9 @@ def notify_user(
     ids: list[int] = []
     if user.pref_in_app or not is_client:  # le personnel reçoit toujours les alertes du site
         db.add(Notification(user_id=user.id, kind=kind, title=title[:200], body=body[:1000], url=url, appointment_id=appointment.id if appointment else None))
-    if is_client and user.pref_email and email_subject and email_body and has_real_email(user):
+    if user.pref_email and email_subject and email_body and has_real_email(user):
         ids.append(_queue(db, user, "email", user.email, email_subject, email_body, appointment))
-    if is_client and user.pref_sms and sms_body and user.phone:
+    if user.pref_sms and sms_body and user.phone:
         ids.append(_queue(db, user, "sms", user.phone, None, sms_body, appointment))
     db.commit()
     return ids
@@ -78,9 +79,21 @@ def staff_for(db: Session, appointment: Appointment) -> list[tuple[User, str]]:
 
 
 def notify_staff(db: Session, appointment: Appointment, *, kind: str, title: str, body: str, exclude_user_id: int | None = None) -> None:
+    queued: list[int] = []
     for person, url in staff_for(db, appointment):
         if person.id != exclude_user_id:
-            notify_user(db, person, kind=kind, title=title, body=body, url=url, appointment=appointment)
+            queued += notify_user(
+                db, person, kind=kind, title=title, body=body, url=url, appointment=appointment,
+                email_subject=f"{title} — KYJA BEAUTÉ", email_body=f"{body}\n\nOuvrir : {providers_base_url()}{url}", sms_body=f"KYJA : {title}. {body}"[:300],
+            )  # fmt: skip
+    if queued:  # courriel / SMS selon les choix de chaque personne, sans retarder la réponse
+        threading.Thread(target=deliver_in_background, args=(queued,), daemon=True).start()
+
+
+def providers_base_url() -> str:
+    from app.config import get_settings
+
+    return get_settings().public_base_url.rstrip("/")
 
 
 # --- envoi -----------------------------------------------------------------------------------------------------------

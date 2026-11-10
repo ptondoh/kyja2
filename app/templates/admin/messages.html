@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_pager.html" import pager %}
 {% block title %}Messages envoyés — Admin{% endblock %}
 {% block content %}
 <a href="/admin/appointments" class="link-gold text-sm">← Rendez-vous</a>
@@ -11,8 +12,11 @@
 {% if not email_ready or not sms_ready %}
 <p class="price-notice mb-6" role="note"><strong class="font-medium">Mode aperçu.</strong> Tant qu'un fournisseur n'est pas configuré dans <code>.env</code>, les messages de ce canal ne partent pas : ils sont seulement enregistrés ici (statut « aperçu ») pour pouvoir tout vérifier.</p>
 {% endif %}
+{% from "_filters.html" import filter_form, box %}
+{{ filter_form('filters', '/admin/messages', f.canal or f.statut) }}
 <div class="panel overflow-x-auto !p-2">
-<table class="admin-table"><thead><tr><th>Date</th><th>Canal</th><th>À</th><th>Message</th><th>Statut</th><th></th></tr></thead><tbody>
+<table class="admin-table"><thead><tr><th>Date</th><th>Canal</th><th>À</th><th>Message</th><th>Statut</th><th></th></tr>
+<tr class="filter-row"><th></th><th>{{ box('filters', 'canal', f.canal, 'Canal…', 'Filtrer par canal', ['Courriel', 'SMS']) }}</th><th></th><th></th><th>{{ box('filters', 'statut', f.statut, 'Statut…', 'Filtrer par statut', ['Aperçu', 'Envoyé', 'Échec', 'En file']) }}</th><th></th></tr></thead><tbody>
 {% for m in rows %}<tr>
   <td>{{ m.created_at | fr_date }}<br><span class="muted">{{ m.created_at | fr_time }}</span></td>
   <td>{{ 'Courriel' if m.channel == 'email' else 'SMS' }}</td>
@@ -23,5 +27,6 @@
   <td>{% if m.status in ('failed', 'queued') %}<form method="post" action="/admin/messages/{{ m.id }}/retry"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn-outline btn-sm">Réessayer</button></form>{% endif %}</td>
 </tr>{% else %}<tr><td colspan="6" class="muted">Aucun message pour le moment.</td></tr>{% endfor %}
 </tbody></table>
+{{ pager(pg, request) }}
 </div>
 {% endblock %}

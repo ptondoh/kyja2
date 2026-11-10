@@ -70,3 +70,8 @@ def staff_quote_expired(appt: Appointment) -> tuple[str, str]:
 
 def staff_cancelled_by_client(appt: Appointment) -> tuple[str, str]:
     return ("Rendez-vous annulé par la cliente", f"{_first_name(appt.client.full_name)} a annulé le rendez-vous du {_when(appt)} ({appt.service.name}).")
+
+
+def staff_rescheduled(appt: Appointment, old_start: datetime) -> tuple[str, str]:
+    before = f"{fr_date(old_start)} à {fr_time(old_start)}"
+    return ("Rendez-vous déplacé par la cliente", f"{_first_name(appt.client.full_name)} a déplacé son rendez-vous ({appt.service.name}) du {before} au {_when(appt)}.")

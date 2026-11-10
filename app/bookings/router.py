@@ -4,6 +4,7 @@ Tout le parcours est PUBLIC jusqu'au récapitulatif : la connexion n'est demand�
 confirmer, et le choix de la visiteuse est conservé (voir `drafts.py`).
 """
 import calendar
+import types
 from datetime import date, datetime, timedelta, timezone
 from urllib.parse import quote
 
@@ -18,6 +19,7 @@ from app.bookings import drafts, engine, photos
 from app.bookings.engine import BookingError, SlotUnavailable
 from app.bookings.photos import MAX_PHOTOS, PhotoRejected
 from app.config import get_settings
+from app.pagination import paginate_list
 from app.db.base import get_db
 from app.db.models.core import (
     ACTIVE_STATUSES,
@@ -104,7 +106,7 @@ def _parse_month(raw: str, first_allowed: date, last_allowed: date) -> date:
     return min(max(month, first_allowed), last_allowed)
 
 
-def _calendar_context(db: Session, service: Service, choice: int | None, month_raw: str = "") -> dict:
+def _calendar_context(db: Session, service: Service, choice: int | None, month_raw: str = "", appt: Appointment | None = None) -> dict:
     """Données du calendrier mensuel : seuls les jours avec au moins un créneau libre sont cliquables."""
     now = engine.utcnow()
     tz = engine.salon_tz()
@@ -114,8 +116,9 @@ def _calendar_context(db: Session, service: Service, choice: int | None, month_r
     month_first = _parse_month(month_raw, first_allowed, last_allowed)
 
     valid_ids = {h.id for h in engine.active_hairdressers(db)}
+    moving = {"duration_min": appt.computed_duration_min, "exclude_id": appt.id} if appt else {}  # déplacement d'un rendez-vous
     available = set() if (choice is not None and choice not in valid_ids) else engine.available_days(
-        db, service, choice, month_first, now
+        db, service, choice, month_first, now, **moving
     )
     weeks = [
         [
@@ -504,7 +507,8 @@ def my_bookings(request: Request, db: Session = Depends(get_db), user: User = De
     ).all()
     upcoming = [a for a in rows if a.status in ACTIVE_STATUSES and a.starts_at > now]
     past = [a for a in reversed(rows) if a not in upcoming]
-    return render(request, "bookings/mine.html", current_user=user, upcoming=upcoming, past=past, now=now)
+    page = paginate_list(past, request.query_params.get("page"), per_page=10)
+    return render(request, "bookings/mine.html", current_user=user, upcoming=upcoming, past=page.items, pg=page, now=now)
 
 
 @router.get("/{appointment_id}")
@@ -529,3 +533,73 @@ def cancel(appointment_id: int, db: Session = Depends(get_db), user: User = Depe
         title, body = messages.staff_cancelled_by_client(appt)
         notifications.notify_staff(db, appt, kind="cancelled", title=title, body=body)
     return RedirectResponse(f"/bookings/{appt.id}?cancelled=1", status_code=303)
+
+
+# --- Déplacer un rendez-vous confirmé ----------------------------------------------------------------------------------
+
+
+def _movable(db: Session, appointment_id: int, user: User) -> Appointment:
+    appt = _load_owned(db, appointment_id, user)
+    if appt.client_id != user.id:
+        raise HTTPException(status_code=404)
+    return appt
+
+
+def _can_move(appt: Appointment) -> bool:
+    return appt.status == AppointmentStatus.confirmed and appt.starts_at > engine.utcnow()
+
+
+@router.get("/{appointment_id}/reschedule")
+def reschedule_page(request: Request, appointment_id: int, db: Session = Depends(get_db), user: User = Depends(require_login)):
+    appt = _movable(db, appointment_id, user)
+    if not _can_move(appt):
+        return RedirectResponse(f"/bookings/{appt.id}", status_code=303)
+    ctx = _calendar_context(db, appt.service, appt.hairdresser_id, "", appt)
+    return render(
+        request, "bookings/reschedule.html", current_user=user, appt=appt, oob=False,
+        cal_url=f"/bookings/{appt.id}/reschedule/calendar", slots_url=f"/bookings/{appt.id}/reschedule/slots", **ctx,
+        error=request.query_params.get("error"),
+    )  # fmt: skip
+
+
+@router.get("/{appointment_id}/reschedule/calendar", dependencies=[Depends(_throttle_browsing)])
+def reschedule_calendar(
+    request: Request, appointment_id: int, month: str = "", cal_month: str = "",
+    db: Session = Depends(get_db), user: User = Depends(require_login),
+):
+    appt = _movable(db, appointment_id, user)
+    ctx = _calendar_context(db, appt.service, appt.hairdresser_id, month or cal_month, appt)
+    return render(request, "bookings/_calendar.html", oob=True, cal_url=f"/bookings/{appt.id}/reschedule/calendar", slots_url=f"/bookings/{appt.id}/reschedule/slots", **ctx)
+
+
+@router.get("/{appointment_id}/reschedule/slots", dependencies=[Depends(_throttle_browsing)])
+def reschedule_slots(
+    request: Request, appointment_id: int, day: str = "", db: Session = Depends(get_db), user: User = Depends(require_login),
+):
+    appt = _movable(db, appointment_id, user)
+    try:
+        the_day = date.fromisoformat(day)
+    except ValueError:
+        return render(request, "bookings/_slots.html", slots=[], message="Choisissez un jour dans le calendrier.")
+    slots = engine.slots_for(db, appt.service, appt.hairdresser_id, the_day, duration_min=appt.computed_duration_min, exclude_id=appt.id)
+    return render(
+        request, "bookings/_slots.html", slots=[start for start, _ in slots],
+        quote=types.SimpleNamespace(duration_min=appt.computed_duration_min),
+        message=None if slots else "Aucun créneau disponible ce jour-là. Essayez une autre date.",
+    )  # fmt: skip
+
+
+@router.post("/{appointment_id}/reschedule")
+def reschedule(
+    appointment_id: int, slot: str = Form(""),
+    db: Session = Depends(get_db), user: User = Depends(require_login),
+):
+    appt = _movable(db, appointment_id, user)
+    try:
+        old_start = engine.reschedule_booking(db, appt, _parse_start(slot))
+    except BookingError as exc:
+        return RedirectResponse(f"/bookings/{appointment_id}/reschedule?error={quote(str(exc))}", status_code=303)
+    db.refresh(appt)
+    title, body = messages.staff_rescheduled(appt, old_start)
+    notifications.notify_staff(db, appt, kind="rescheduled", title=title, body=body)
+    return RedirectResponse(f"/bookings/{appt.id}?moved=1", status_code=303)

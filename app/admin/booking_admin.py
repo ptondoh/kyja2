@@ -7,7 +7,9 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import delete, select
+import unicodedata
+
+from sqlalchemy import delete, false, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth.deps import require_role
@@ -15,9 +17,12 @@ from app.auth.security import hash_password
 from app.bookings import engine, quotes
 from app.bookings.engine import BookingError
 from app.db.base import get_db
+from app.filters import matching, plain as _plain
+from app.pagination import like, paginate
 from app.db.models.core import (
     Appointment,
     AppointmentStatus,
+    BookingMode,
     MessageOutbox,
     AvailabilitySlot,
     Hairdresser,
@@ -29,7 +34,7 @@ from app.db.models.core import (
 from app.notifications import service as notifications
 from app.security_middleware import verify_csrf
 from app.services import lifecycle
-from app.templating import render
+from app.templating import STATUS_LABELS, render
 
 router = APIRouter(
     prefix="/admin", dependencies=[Depends(require_role(Role.admin)), Depends(verify_csrf)]
@@ -39,6 +44,10 @@ EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,255}\.[^@\s]{2,}$")
 TIME_RE = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 KIND_RE = re.compile(r"^[a-z0-9_]{1,50}$")
 MIN_PASSWORD = 12
+TYPE_LABELS = {"custom": "Sur mesure", "catalog": "Catalogue"}
+WHEN_LABELS = {"avenir": "À venir", "passes": "Passés"}
+
+
 WEEKDAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 
 
@@ -71,13 +80,18 @@ def hairdressers_list(
     request: Request, db: Session = Depends(get_db), user: User = Depends(require_role(Role.admin))
 ):
     archived = request.query_params.get("archived") == "1"
-    items = db.scalars(
+    q = (request.query_params.get("q") or "").strip()
+    query = (
         select(Hairdresser)
+        .join(User, Hairdresser.user_id == User.id)
         .options(selectinload(Hairdresser.user), selectinload(Hairdresser.slots))
         .where(Hairdresser.archived_at.is_not(None) if archived else Hairdresser.archived_at.is_(None))
         .order_by(Hairdresser.id)
-    ).all()
-    return render(request, "admin/hairdressers.html", current_user=user, items=items, show_archived=archived)
+    )
+    if q:
+        query = query.where(or_(User.full_name.ilike(like(q), escape="\\"), User.email.ilike(like(q), escape="\\")))
+    pg = paginate(db, query, request.query_params.get("page"))
+    return render(request, "admin/hairdressers.html", current_user=user, items=pg.items, pg=pg, q=q, show_archived=archived)
 
 
 @router.post("/hairdressers")
@@ -103,14 +117,16 @@ def hairdresser_create(
         errors.append(f"Le mot de passe provisoire doit contenir au moins {MIN_PASSWORD} caractères.")
     coeff = _coefficient(coefficient, errors)
     if errors:
-        items = db.scalars(
+        pg = paginate(
+            db,
             select(Hairdresser)
             .options(selectinload(Hairdresser.user), selectinload(Hairdresser.slots))
             .where(Hairdresser.archived_at.is_(None))
-            .order_by(Hairdresser.id)
-        ).all()
+            .order_by(Hairdresser.id),
+            1,
+        )
         return render(
-            request, "admin/hairdressers.html", status_code=400, current_user=user, items=items,
+            request, "admin/hairdressers.html", status_code=400, current_user=user, items=pg.items, pg=pg, q="",
             errors=errors, form={"full_name": full_name, "email": email, "coefficient": coefficient},
         )  # fmt: skip
     account = User(email=email, password_hash=hash_password(password), role=Role.hairdresser, full_name=full_name)
@@ -260,7 +276,10 @@ def resource_toggle(resource_id: int, db: Session = Depends(get_db)):
 def appointments_list(
     request: Request, db: Session = Depends(get_db), user: User = Depends(require_role(Role.admin))
 ):
-    items = db.scalars(
+    params = request.query_params
+    now = engine.utcnow()
+    f = {k: (params.get(k) or "").strip() for k in ("statut", "type", "coiffeuse", "quand", "q")}
+    query = (
         select(Appointment)
         .options(
             selectinload(Appointment.client),
@@ -269,19 +288,56 @@ def appointments_list(
             selectinload(Appointment.hairdresser).selectinload(Hairdresser.user),
         )
         .order_by(Appointment.starts_at.desc())
-        .limit(200)
-    ).all()
-    return render(request, "admin/appointments.html", current_user=user, items=items, now=engine.utcnow())
+    )
+    # Chaque filtre est une zone de saisie (avec liste déroulante) : on tape quelques lettres ou on choisit une valeur.
+    status_labels = {s.value: STATUS_LABELS.get(s.value, s.value) for s in AppointmentStatus}
+    by_status = matching(f["statut"], status_labels)
+    if by_status is not None:
+        query = query.where(Appointment.status.in_([AppointmentStatus(v) for v in by_status]))
+    by_type = matching(f["type"], TYPE_LABELS)
+    if by_type is not None:
+        query = query.where(Appointment.booking_mode.in_([BookingMode(v) for v in by_type]))
+    if f["coiffeuse"]:
+        query = query.where(Appointment.hairdresser_id.in_(
+            select(Hairdresser.id).join(User, Hairdresser.user_id == User.id).where(User.full_name.ilike(like(f["coiffeuse"]), escape="\\"))
+        ))  # fmt: skip
+    by_when = matching(f["quand"], WHEN_LABELS)
+    if by_when is not None:
+        if by_when == ["avenir"]:
+            query = query.where(Appointment.starts_at > now)
+        elif by_when == ["passes"]:
+            query = query.where(Appointment.starts_at <= now)
+        elif not by_when:
+            query = query.where(false())
+    if f["q"]:
+        query = query.join(User, Appointment.client_id == User.id).where(or_(User.full_name.ilike(like(f["q"]), escape="\\"), User.email.ilike(like(f["q"]), escape="\\")))
+    pg = paginate(db, query, params.get("page"))
+    hairdressers = db.scalars(select(Hairdresser).options(selectinload(Hairdresser.user)).order_by(Hairdresser.id)).all()
+    return render(
+        request, "admin/appointments.html", current_user=user, items=pg.items, pg=pg, f=f, now=now,
+        statuses=list(status_labels.values()), types=list(TYPE_LABELS.values()), whens=list(WHEN_LABELS.values()),
+        hairdressers=[h.user.full_name for h in hairdressers],
+    )  # fmt: skip
 
 
 @router.get("/messages")
 def messages_log(request: Request, db: Session = Depends(get_db), user: User = Depends(require_role(Role.admin))):
     """Journal des courriels et SMS. « aperçu » = aucun fournisseur configuré, rien n'est parti."""
-    rows = db.scalars(select(MessageOutbox).order_by(MessageOutbox.id.desc()).limit(100)).all()
+    params = request.query_params
+    f = {"canal": (params.get("canal") or "").strip(), "statut": (params.get("statut") or "").strip()}
+    query = select(MessageOutbox).order_by(MessageOutbox.id.desc())
+    by_channel = matching(f["canal"], {"email": "Courriel", "sms": "SMS"})
+    if by_channel is not None:
+        query = query.where(MessageOutbox.channel.in_(by_channel))
+    by_status = matching(f["statut"], {"preview": "Aperçu", "sent": "Envoyé", "failed": "Échec", "queued": "En file"})
+    if by_status is not None:
+        query = query.where(MessageOutbox.status.in_(by_status))
+    pg = paginate(db, query, params.get("page"), per_page=25)
+    rows = pg.items
     from app.notifications import providers
 
     return render(
-        request, "admin/messages.html", current_user=user, rows=rows,
+        request, "admin/messages.html", current_user=user, rows=rows, pg=pg, f=f,
         email_ready=providers.email_configured(), sms_ready=providers.sms_configured(),
     )  # fmt: skip
 

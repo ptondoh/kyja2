@@ -78,3 +78,12 @@ def render(request: Request, name: str, status_code: int = 200, **context):
     context.setdefault("csp_nonce", getattr(request.state, "csp_nonce", ""))
     context.setdefault("csrf_token", getattr(request.state, "csrf_token", ""))
     return templates.TemplateResponse(request, name, context, status_code=status_code)
+
+
+def page_url(request: Request, page: int) -> str:
+    """Adresse de la même liste à une autre page, filtres conservés."""
+    url = request.url.include_query_params(page=page)
+    return f"{url.path}?{url.query}"
+
+
+templates.env.globals["page_url"] = page_url

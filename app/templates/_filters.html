@@ -1,0 +1,14 @@
+{# Filtres en tête de colonne : filter_form(id, action, actif, caché) puis box(id, nom, valeur, placeholder, libellé, options) dans chaque <th>. #}
+{% macro filter_form(id, action, active, hidden={}) -%}
+<form method="get" action="{{ action }}" id="{{ id }}" role="search" aria-label="Filtrer la liste" class="mb-3 flex flex-wrap items-center gap-3 text-sm" data-autofilter>
+  {% for k, v in hidden.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  <span class="muted">Tapez dans la zone d'une colonne ou ouvrez sa liste avec la flèche.</span>
+  <button type="submit" class="btn-outline btn-sm">Filtrer</button>
+  {% if active %}<a href="{{ action }}{% if hidden %}?{% for k, v in hidden.items() %}{{ k }}={{ v }}{% if not loop.last %}&amp;{% endif %}{% endfor %}{% endif %}" class="link-gold">Effacer les filtres</a>{% endif %}
+</form>
+{%- endmacro %}
+
+{% macro box(form_id, name, value, placeholder, label, options=none) -%}
+<input form="{{ form_id }}" name="{{ name }}" value="{{ value }}" placeholder="{{ placeholder }}" aria-label="{{ label }}" maxlength="100" autocomplete="off"{% if options is not none %} list="dl-{{ form_id }}-{{ name }}"{% endif %}>
+{%- if options is not none %}<datalist id="dl-{{ form_id }}-{{ name }}">{% for o in options %}<option value="{{ o }}">{% endfor %}</datalist>{% endif %}
+{%- endmacro %}

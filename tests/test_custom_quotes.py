@@ -440,7 +440,7 @@ def test_a_failed_delivery_is_kept_and_can_be_retried(scene, monkeypatch):
     monkeypatch.setattr(providers, "send_email", boom)
     propose(scene["m"], scene["appt"])
     with SessionLocal() as db:
-        mail = db.scalar(select(MessageOutbox).where(MessageOutbox.channel == "email"))
+        mail = db.scalar(select(MessageOutbox).where(MessageOutbox.channel == "email", MessageOutbox.to_address == "cliente@test.kyja"))
         assert mail.status == "failed" and "500" in mail.error and mail.attempts == 1
         mail_id = mail.id
     monkeypatch.undo()
@@ -459,7 +459,7 @@ def test_anonymised_or_walk_in_clients_never_get_emails(scene):
         assert notifications.has_real_email(client) is False
     propose(scene["m"], scene["appt"])
     with SessionLocal() as db:
-        assert db.scalars(select(MessageOutbox).where(MessageOutbox.channel == "email")).all() == []
+        assert db.scalars(select(MessageOutbox).where(MessageOutbox.channel == "email", MessageOutbox.user_id == client.id)).all() == []
 
 
 def test_sweeper_cancels_unanswered_quotes_and_tells_everyone(scene):

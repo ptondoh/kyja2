@@ -5,9 +5,9 @@
   <h1>Mon agenda</h1>
   <p class="muted">Tous les rendez-vous pris avec vous, même s'ils ne sont pas encore confirmés. Vos propres réservations comme cliente sont dans <a href="/bookings" class="link-gold">Mes rendez-vous</a>.</p>
 </header>
-<nav class="mb-8 flex flex-wrap gap-2" aria-label="Type de rendez-vous">
-  {% for key, label in types.items() %}<a href="/agenda{{ '' if key == 'all' else '?type=' ~ key }}" class="{{ 'btn-gold' if key == type else 'btn-outline' }} btn-sm" {% if key == type %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
-</nav>
+{% from "_filters.html" import filter_form, box %}
+{{ filter_form('filters', '/agenda', type_text) }}
+<div class="mb-8 max-w-xs">{{ box('filters', 'type', type_text, 'Type de rendez-vous…', 'Filtrer par type de rendez-vous', types.values() | list) }}</div>
 {% for title, hint, items in groups %}
 <section class="mb-10" data-group="{{ title }}">
   <h2 class="mb-1">{{ title }} <span class="muted text-base">({{ items | length }})</span></h2>

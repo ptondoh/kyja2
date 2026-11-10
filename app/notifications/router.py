@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.auth.deps import get_current_user_optional, require_login
 from app.db.base import get_db
 from app.db.models.core import Notification, User
+from app.pagination import paginate
 from app.notifications import service
 from app.security_middleware import verify_csrf
 from app.templating import render
@@ -16,10 +17,8 @@ router = APIRouter(prefix="/notifications")
 
 @router.get("")
 def notifications_page(request: Request, db: Session = Depends(get_db), user: User = Depends(require_login)):
-    items = db.scalars(
-        select(Notification).where(Notification.user_id == user.id).order_by(Notification.id.desc()).limit(50)
-    ).all()
-    return render(request, "notifications/list.html", current_user=user, items=items)
+    pg = paginate(db, select(Notification).where(Notification.user_id == user.id).order_by(Notification.id.desc()), request.query_params.get("page"))
+    return render(request, "notifications/list.html", current_user=user, items=pg.items, pg=pg)
 
 
 @router.post("/read", dependencies=[Depends(verify_csrf)])

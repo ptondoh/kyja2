@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_pager.html" import pager %}
 {% block title %}Mes rendez-vous — KYJA BEAUTÉ{% endblock %}
 {% block content %}
 {% macro row(a) %}
@@ -19,5 +20,6 @@
 {% if past %}
 <h2 class="mb-3">Historique</h2>
 <ul class="flex list-none flex-col gap-3 p-0">{% for a in past %}{{ row(a) }}{% endfor %}</ul>
+{{ pager(pg, request) }}
 {% endif %}
 {% endblock %}

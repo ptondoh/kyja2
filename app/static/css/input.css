@@ -110,17 +110,27 @@
   }
   .chips a.on { @apply border-gold-500 bg-gold-500 text-ink; }
   .gallery { @apply my-6 grid gap-4 sm:grid-cols-2; }
-  .gallery img, .gallery video { @apply h-auto w-full rounded-2xl bg-cream object-cover shadow-sm; }
+  .gallery img { @apply h-auto w-full rounded-2xl bg-cream object-cover shadow-sm; }
+  .gallery video { @apply mx-auto block h-auto max-h-[80vh] w-full rounded-2xl bg-ink object-contain shadow-sm; }
   .gallery-photo { @apply block cursor-zoom-in; }
   .gallery-video { @apply relative; }
   .gallery-video .expand { @apply absolute right-2 top-2 flex size-9 items-center justify-center rounded-full bg-ink/70 text-lg text-gold-300 no-underline hover:bg-ink; }
+  /* Menu du haut : la page courante est en or et soulignée */
+  .nav-link { @apply relative inline-flex items-center gap-2 border-b-2 border-transparent py-2 text-ivory/85 hover:text-gold-300; }
+  .nav-link.is-active { @apply border-gold-300 text-gold-300; }
+  .bell-icon { @apply shrink-0; }
+  .bell-badge {
+    @apply inline-flex min-w-5 items-center justify-center rounded-full bg-[#e5322d] px-1.5 text-xs font-bold leading-5 text-white
+      shadow-[0_0_0_2px_var(--color-ink)] md:absolute md:-right-3 md:-top-1;
+  }
   /* Visionneuse (carrousel) */
-  .lightbox { @apply m-0 size-full max-h-none max-w-none border-0 bg-transparent p-0 text-ivory; }
+  .lightbox { @apply fixed inset-0 m-0 size-full max-h-none max-w-none border-0 bg-transparent p-0 text-ivory; }
   .lightbox::backdrop { background: rgb(10 8 6 / 0.94); }
   .lightbox-stage { @apply flex size-full items-center justify-center px-4 py-14 sm:px-20; touch-action: pan-y; }
-  .lightbox-media { @apply max-h-full max-w-full rounded-lg object-contain; }
+  .lightbox-media { @apply block h-auto w-auto max-h-[calc(100dvh-7rem)] max-w-full rounded-lg object-contain; }
+  video.lightbox-media { @apply bg-ink; }
   .lightbox-count { @apply absolute inset-x-0 bottom-3 m-0 px-16 text-center text-sm text-ivory/80; }
-  .lightbox-btn { @apply absolute flex size-11 cursor-pointer items-center justify-center rounded-full border border-ink-line bg-ink/80 text-2xl leading-none text-gold-300 hover:bg-ink; }
+  .lightbox-btn { @apply absolute z-10 flex size-12 cursor-pointer items-center justify-center rounded-full border border-gold-300 bg-ink/85 text-3xl leading-none text-gold-300 shadow-lg hover:bg-gold-400 hover:text-ink focus-visible:bg-gold-400 focus-visible:text-ink; }
   .lightbox-close { @apply right-3 top-3; }
   .lightbox-prev { @apply left-3 top-1/2 -translate-y-1/2; }
   .lightbox-next { @apply right-3 top-1/2 -translate-y-1/2; }
@@ -174,7 +184,7 @@
   /* Prix estimatif */
   .price-notice { @apply mb-5 rounded-xl border border-gold-300 bg-gold-300/15 px-4 py-3 text-sm text-ink-soft; }
   dialog.price-dialog {
-    @apply m-auto w-[min(92vw,28rem)] rounded-2xl border border-gold-300 bg-ivory p-6 text-ink shadow-xl backdrop:bg-ink/60;
+    @apply fixed inset-0 m-auto h-fit max-h-[90dvh] w-[min(92vw,28rem)] overflow-y-auto rounded-2xl border border-gold-300 bg-ivory p-6 text-ink shadow-xl backdrop:bg-ink/60;
   }
 
   /* Photos d'inspiration */
@@ -192,6 +202,17 @@
   }
   .photo-state { @apply absolute inset-x-0 bottom-0 bg-ink/60 text-center text-[0.7rem] text-ivory empty:hidden; }
   .photo-card:not(.is-uploaded) img { @apply opacity-60; }
+
+  /* Pagination et filtres des listes */
+  .pager { @apply mt-4 flex flex-wrap items-center justify-between gap-3 text-sm; }
+  .pager ul { @apply m-0 flex list-none flex-wrap gap-1 p-0; }
+  .pager a { @apply inline-flex min-w-9 items-center justify-center rounded-full border border-line bg-white px-2 py-1.5 text-ink no-underline hover:border-gold-400; }
+  .pager a.on { @apply border-gold-500 bg-gold-500 font-medium text-ink; }
+  .filter-row th { @apply border-b border-line bg-cream/50 px-2 py-2 align-top; }
+  .filter-row input { @apply !w-full !min-w-28 !py-1.5 !text-sm font-normal normal-case tracking-normal; }
+  .filters { @apply mb-5 flex flex-wrap items-end gap-3 text-sm; }
+  .filters label { @apply flex flex-col gap-1 text-xs uppercase tracking-wider text-muted; }
+  .filters select, .filters input { @apply !w-auto !py-1.5 !text-sm normal-case tracking-normal; }
 
   /* Administration */
   .admin-table { @apply w-full text-left text-sm; }

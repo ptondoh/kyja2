@@ -7,6 +7,7 @@
   {% if appt.status.value == 'pending_quote' %}<div class="ok mt-4" role="status"><strong class="font-medium">Demande reçue.</strong> Le créneau est réservé. Vous recevrez le prix final à confirmer.</div>
   {% else %}<div class="ok mt-4" role="status"><strong class="font-medium">Rendez-vous confirmé.</strong> Nous vous attendons au salon.</div>{% endif %}
   {% endif %}
+  {% if request.query_params.get('moved') %}<div class="ok mt-4" role="status">Rendez-vous déplacé. Le salon en est informé.</div>{% endif %}
   {% if request.query_params.get('cancelled') %}<div class="ok mt-4" role="status">Rendez-vous annulé.</div>{% endif %}
   <h1 class="mb-2 mt-6">{{ appt.service.name }}</h1>
   <p><span class="status status-{{ appt.status.value }}">{{ status_label(appt) }}</span></p>
@@ -42,10 +43,12 @@
       <dt>Paiement</dt><dd>Au salon (Cash / Interac)</dd>
     </dl>
     {% if appt.status.value in ('pending_quote', 'awaiting_client', 'confirmed') and appt.starts_at > now %}
+    <div class="flex flex-wrap items-center gap-3">
+    {% if appt.status.value == 'confirmed' and appt.client_id == current_user.id %}<a href="/bookings/{{ appt.id }}/reschedule" class="btn-outline btn-sm">Changer la date ou l'heure</a>{% endif %}
     <form method="post" action="/bookings/{{ appt.id }}/cancel">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" class="btn-danger">Annuler ce rendez-vous</button>
-    </form>
+    </form></div>
     {% endif %}
   </div>
 </div>

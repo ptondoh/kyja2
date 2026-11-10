@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="/static/css/style.css">
   {% if current_user %}<script src="/static/js/notifications.js" defer></script>{% endif %}
   <script src="/static/js/lightbox.js" defer></script>
+  <script src="/static/js/filters.js" defer></script>
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -30,13 +31,19 @@
       </label>
 
       <nav class="absolute inset-x-0 top-16 hidden flex-col gap-1 border-b border-ink-line bg-ink px-4 py-4 text-sm tracking-wide peer-checked:flex md:static md:flex md:flex-row md:items-center md:gap-7 md:border-0 md:bg-transparent md:p-0" aria-label="Navigation principale">
-        <a href="/services" class="py-2 text-ivory/85 hover:text-gold-300">Prestations</a>
-        <a href="/products" class="py-2 text-ivory/85 hover:text-gold-300">Produits</a>
-        {% if current_user and current_user.role.value == 'hairdresser' %}<a href="/agenda" class="py-2 text-gold-300 hover:text-gold-200">Mon agenda</a>{% endif %}
-        {% if current_user %}<a href="/bookings" class="py-2 text-ivory/85 hover:text-gold-300">Mes rendez-vous</a>{% endif %}
-        {% if current_user and current_user.role.value == 'admin' %}<a href="/admin" class="py-2 text-gold-300 hover:text-gold-200">Admin</a>{% endif %}
+        {% set path = request.url.path %}
+        {% macro nav(href, label, active, extra='') %}<a href="{{ href }}" class="nav-link{% if active %} is-active{% endif %}{{ extra }}"{% if active %} aria-current="page"{% endif %}>{{ label }}</a>{% endmacro %}
+        {{ nav('/services', 'Prestations', path.startswith('/services')) }}
+        {{ nav('/products', 'Produits', path.startswith('/products')) }}
+        {% if current_user and current_user.role.value == 'hairdresser' %}{{ nav('/agenda', 'Mon agenda', path.startswith('/agenda')) }}{% endif %}
+        {% if current_user %}{{ nav('/bookings', 'Mes rendez-vous', path.startswith('/bookings') and not path.startswith('/bookings/new')) }}{% endif %}
+        {% if current_user and current_user.role.value == 'admin' %}{{ nav('/admin', 'Admin', path.startswith('/admin')) }}{% endif %}
         {% if current_user %}
-          <a href="/notifications" id="bell" class="relative py-2 text-ivory/85 hover:text-gold-300" aria-label="Alertes">Alertes <span data-bell-count hidden class="ml-1 rounded-full bg-gold-400 px-1.5 text-xs font-semibold text-ink">0</span></a>
+          <a href="/notifications" id="bell" class="nav-link bell{% if path.startswith('/notifications') %} is-active{% endif %}" aria-label="Alertes" title="Alertes">
+            <svg class="bell-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 20a1.9 1.9 0 0 0 3.4 0"/></svg>
+            <span class="md:hidden">Alertes</span>
+            <span data-bell-count hidden class="bell-badge">0</span>
+          </a>
           <a href="/clients/me" class="py-2 text-ivory/70 hover:text-gold-300 md:border-l md:border-ink-line md:pl-7" title="Mon profil">{{ current_user.full_name }}</a>
           <form method="post" action="/auth/logout" class="inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
