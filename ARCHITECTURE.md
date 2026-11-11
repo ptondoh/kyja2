@@ -516,13 +516,17 @@ Puisque les requêtes HTMX/formulaires envoient automatiquement les cookies de s
 
 ## Notifications
 
-### Ce qui est en place (sans Redis ni Celery)
+### Ce qui est en place (Celery optionnel, repli intégré sans Redis)
 
 - **Cycle d'une demande sur mesure** : `pending_quote` → (prix proposé) `awaiting_client` → `confirmed` ou `cancelled`. Les deux premiers statuts occupent le créneau (`ACTIVE_STATUSES`). Code : `app/bookings/quotes.py`.
 - **Lien de réponse** : jeton aléatoire de 256 bits (`secrets.token_urlsafe(32)`), seule son **empreinte SHA-256** est en base (`quote_token_hash`, unique). Usage unique, expiration, remplacé par un nouveau prix. `GET/POST /quotes/{jeton}` sans connexion (CSRF double-submit, `no-store`, `Referrer-Policy: no-referrer`, 20 essais ratés/h/IP). La réponse verrouille la ligne (`FOR UPDATE`) : deux réponses simultanées ne passent pas toutes les deux.
 - **Alertes** : table `notifications` (cloche, `GET /notifications/poll` interrogé toutes les 30 s par `static/js/notifications.js`, alerte du navigateur via l'API `Notification`) ; table `message_outbox` (journal des courriels/SMS : `queued` → `sent` | `failed` | `preview`). Préférences par utilisatrice : `pref_in_app`, `pref_browser_alert`, `pref_email`, `pref_sms`.
 - **Envoi** : `app/notifications/providers.py` — Resend (courriel), Twilio par `httpx` (SMS). Sans clés : statut `preview`, rien ne part. Un échec est conservé et réessayable (Admin → Messages envoyés). L'envoi se fait après la réponse (`BackgroundTasks`), il ne ralentit pas la cliente.
 - **Nettoyage** : `app/notifications/sweeper.py`, boucle dans le processus du site toutes les 5 min (lifespan) : annule les prix expirés.
+- **Celery (optionnel, `USE_CELERY=true`)** : `app/tasks/celery_app.py` (application et planification `beat`), `app/tasks/jobs.py` (tâches), `app/tasks/dispatch.py` (envoi : `deliver_messages.delay`, sinon dans le processus ; si Redis est injoignable, repli sur place, le site ne dépend jamais du courtier). Tâches : `kyja.deliver_messages` (3 essais, délais 30 s / 2 min / 8 min), `kyja.expire_quotes` (5 min), `kyja.send_reminders` (10 min), `kyja.retry_stuck_messages` (15 min), `kyja.purge_drafts` (1 h). Avec Celery, la boucle `sweeper` du site n'est pas lancée. Sous Windows : `worker -B -P solo`.
+- **Rappels** : `app/notifications/reminders.py`. Fenêtres : 24 h et 2 h avant le début, un seul envoi par rappel (colonnes `reminder_day_sent_at` / `reminder_hours_sent_at`, réservées par `UPDATE … WHERE … IS NULL`, donc sûr si deux planificateurs tournent). Pas de rappel de la veille pour une réservation faite moins de 24 h avant ; la fenêtre manquée n'est pas rattrapée. Essai en direct : `python -m scripts.simulate_reminders`.
+- **Messages envoyés (admin)** : `/admin/messages` ne liste que les messages dont le destinataire est une cliente (`User.role = client`) ; les alertes de l'équipe restent dans `notifications`.
+- **Listes** : `app/pagination.py` (pagination 20 par page), `app/filters.py` + `templates/_filters.html` (filtres en tête de colonne : texte tapé comparé aux libellés sans accent ni majuscule), `static/js/filters.js` (mise à jour au choix d'une valeur).
 - **Agenda coiffeuse** : `app/hairdressers/router.py` (`/agenda`), filtré sur la coiffeuse connectée (404 pour les rendez-vous des autres).
 
 ### Cible (Celery, quand Redis sera installé)

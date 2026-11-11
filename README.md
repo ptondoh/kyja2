@@ -37,6 +37,17 @@ celery -A app.tasks.celery_app worker -B -P solo -l info
 En production : un `worker` (`celery -A app.tasks.celery_app worker -l info`) et **un seul** `beat` (`celery -A app.tasks.celery_app beat -l info`).
 Si Redis tombe, le site continue de répondre et envoie alors les messages lui-même.
 
+**Essayer les rappels sans attendre la veille** (depuis le dossier du projet, avec le Python du projet) :
+
+```
+.\.venv\Scripts\python.exe -m scripts.simulate_reminders                    # liste les rendez-vous confirmés
+.\.venv\Scripts\python.exe -m scripts.simulate_reminders 12 --avant 20h     # simule le rappel de la veille
+.\.venv\Scripts\python.exe -m scripts.simulate_reminders 12 --avant 1h50    # rappel 2 h avant
+.\.venv\Scripts\python.exe -m scripts.simulate_reminders 12 --reset         # recommencer
+```
+
+Les courriels et SMS restent en « aperçu » (rien ne part) tant que Resend et Twilio ne sont pas configurés ; ils se lisent dans **Admin → Messages envoyés**.
+
 ## Design (Tailwind, sans Node)
 
 Le binaire autonome Tailwind v4.3.3 se place dans `bin/tailwindcss.exe` (non versionné, voir
