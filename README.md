@@ -19,6 +19,24 @@ Pour voir le site avec des données (coiffeuses, horaires, prestations) : `pytho
 
 `ffmpeg` doit être installé pour le traitement des vidéos.
 
+## Tâches de fond (Redis + Celery)
+
+Optionnel en développement : sans `USE_CELERY=true`, le site envoie les messages et nettoie tout seul, dans son processus.
+Avec Celery, les envois sont mis en file (reprise automatique en cas d'échec) et un planificateur lance :
+rappels de rendez-vous (la veille et 2 h avant), annulation des prix sans réponse, reprise des messages restés en file,
+nettoyage des brouillons.
+
+1. Démarrer Redis (sur Linux : `sudo apt install redis-server` ; sur Windows : Memurai ou Redis dans WSL — pas de Docker).
+2. Dans `.env` : `USE_CELERY=true` (et `REDIS_URL` si Redis n'est pas sur `localhost:6379`).
+3. Lancer le worker et le planificateur (en développement, un seul processus suffit, y compris sous Windows) :
+
+```
+celery -A app.tasks.celery_app worker -B -P solo -l info
+```
+
+En production : un `worker` (`celery -A app.tasks.celery_app worker -l info`) et **un seul** `beat` (`celery -A app.tasks.celery_app beat -l info`).
+Si Redis tombe, le site continue de répondre et envoie alors les messages lui-même.
+
 ## Design (Tailwind, sans Node)
 
 Le binaire autonome Tailwind v4.3.3 se place dans `bin/tailwindcss.exe` (non versionné, voir

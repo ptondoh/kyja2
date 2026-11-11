@@ -13,6 +13,7 @@ from app.db.base import get_db
 from app.filters import matching
 from app.db.models.core import Appointment, AppointmentStatus, BookingMode, Hairdresser, Role, User
 from app.notifications import service as notifications
+from app.tasks import dispatch
 from app.security_middleware import verify_csrf
 from app.templating import render
 
@@ -94,5 +95,5 @@ def agenda_quote(
         ids = quotes.propose_and_notify(db, appt, quotes.parse_price(price), user)
     except QuoteError as exc:
         return render(request, "hairdressers/appointment.html", status_code=400, current_user=user, appt=appt, now=engine.utcnow(), sent=None, error=str(exc))
-    background.add_task(notifications.deliver_in_background, ids)
+    background.add_task(dispatch.send_messages, ids)
     return RedirectResponse(f"/agenda/{appt.id}?sent=1", status_code=303)

@@ -32,6 +32,7 @@ from app.db.models.core import (
     User,
 )
 from app.notifications import service as notifications
+from app.tasks import dispatch
 from app.security_middleware import verify_csrf
 from app.services import lifecycle
 from app.templating import STATUS_LABELS, render
@@ -325,7 +326,9 @@ def messages_log(request: Request, db: Session = Depends(get_db), user: User = D
     """Journal des courriels et SMS. « aperçu » = aucun fournisseur configuré, rien n'est parti."""
     params = request.query_params
     f = {"canal": (params.get("canal") or "").strip(), "statut": (params.get("statut") or "").strip()}
-    query = select(MessageOutbox).order_by(MessageOutbox.id.desc())
+    # Seulement ce qui est écrit aux clientes. Les alertes de l'équipe (nouveau rendez-vous, annulation, déplacement)
+    # restent dans la cloche et dans la liste des rendez-vous.
+    query = select(MessageOutbox).join(User, MessageOutbox.user_id == User.id).where(User.role == Role.client).order_by(MessageOutbox.id.desc())
     by_channel = matching(f["canal"], {"email": "Courriel", "sms": "SMS"})
     if by_channel is not None:
         query = query.where(MessageOutbox.channel.in_(by_channel))
@@ -350,7 +353,7 @@ def messages_retry(message_id: int, background: BackgroundTasks, db: Session = D
     row.attempts = 0
     row.status = "queued"
     db.commit()
-    background.add_task(notifications.deliver_in_background, [row.id])
+    background.add_task(dispatch.send_messages, [row.id])
     return _redirect("/admin/messages")
 
 
@@ -371,7 +374,7 @@ def appointment_final_price(
         value = quotes.parse_price(price)
         if appt.status in (AppointmentStatus.pending_quote, AppointmentStatus.awaiting_client):
             ids = quotes.propose_and_notify(db, appt, value, user)
-            background.add_task(notifications.deliver_in_background, ids)
+            background.add_task(dispatch.send_messages, ids)
             return _redirect("/admin/appointments?quoted=1")
         if value != value.quantize(Decimal("0.01")) or not (Decimal("0") <= value <= Decimal("99999.99")):
             raise BookingError("Prix invalide (2 décimales max).")

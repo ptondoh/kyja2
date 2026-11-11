@@ -16,8 +16,10 @@ Liste vivante des choses qui attendent un accès, une décision ou du temps. Les
   - [ ] gérer la réponse « STOP » des clientes.
 - [ ] **`PUBLIC_BASE_URL`** : adresse publique du site (ex. `https://www.kyjabeaute.ca`) pour que les liens des
       courriels et SMS soient valides. En développement : `http://localhost:8000`.
-- [ ] **Redis + Celery** : envoi des messages en tâche de fond (aujourd'hui : après la réponse, dans le même processus),
-      rappels de rendez-vous (la veille et 2 h avant), purge automatique des brouillons de photos.
+- [ ] **Redis + Celery : installer Redis et tester pour de vrai.** Le code est prêt et testé sans Redis
+      (envoi des messages en file avec reprises, rappels la veille et 2 h avant, annulation des prix sans réponse,
+      nettoyage des brouillons). Reste : installer Redis (Memurai ou WSL sous Windows), mettre `USE_CELERY=true`,
+      lancer `celery -A app.tasks.celery_app worker -B -P solo -l info` (voir README) et vérifier un rappel réel.
 - [ ] **Cloudflare R2** : créer les deux buckets (`kyja-beaute` public, `kyja-private` privé) et tester avec de vrais fichiers.
 - [ ] **Alertes du navigateur quand le site est fermé** (Web Push : service worker + clés VAPID). Aujourd'hui l'alerte
       fonctionne seulement quand le site est ouvert dans le navigateur.
@@ -34,6 +36,7 @@ Liste vivante des choses qui attendent un accès, une décision ou du temps. Les
 - [ ] Produits : archivage au lieu de la suppression dès qu'il y aura des commandes.
 
 ## Fait
+- [x] Rappels de rendez-vous (la veille et 2 h avant), envoi des messages et nettoyages par Celery (repli intégré sans Redis).
 - [x] Prix final d'une demande sur mesure : proposition, lien de confirmation, alertes (site, navigateur, courriel/SMS en aperçu).
 - [x] Agenda de la coiffeuse (« Mon agenda »).
 - [x] Carrousel des photos et vidéos.

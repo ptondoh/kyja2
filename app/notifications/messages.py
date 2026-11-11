@@ -2,6 +2,7 @@
 from datetime import datetime
 from decimal import Decimal
 
+from app.bookings.engine import salon_tz
 from app.config import get_settings
 from app.db.models.core import Appointment
 from app.templating import fr_date, fr_time, money
@@ -75,3 +76,28 @@ def staff_cancelled_by_client(appt: Appointment) -> tuple[str, str]:
 def staff_rescheduled(appt: Appointment, old_start: datetime) -> tuple[str, str]:
     before = f"{fr_date(old_start)} à {fr_time(old_start)}"
     return ("Rendez-vous déplacé par la cliente", f"{_first_name(appt.client.full_name)} a déplacé son rendez-vous ({appt.service.name}) du {before} au {_when(appt)}.")
+
+
+def reminder(appt: Appointment, days_before: bool) -> dict:
+    """Rappel envoyé à la cliente : la veille (`days_before=True`) ou environ 2 h avant."""
+    who = _first_name(appt.client.full_name)
+    stylist = appt.hairdresser.user.full_name
+    tz = salon_tz()
+    day_word = "demain" if appt.starts_at.astimezone(tz).date() > datetime.now(tz).date() else "aujourd'hui"  # selon l'heure du salon
+    when = f"{day_word} à {fr_time(appt.starts_at)}"
+    link = f"{base_url()}/bookings/{appt.id}"
+    lead = "Rappel" if days_before else "C'est bientôt"
+    return {
+        "title": f"{lead} : rendez-vous {when}",
+        "body": f"{appt.service.name} avec {stylist}, {fr_date(appt.starts_at)} à {fr_time(appt.starts_at)}.",
+        "email_subject": f"{SALON} : votre rendez-vous {when}",
+        "email_body": (
+            f"Bonjour {who},\n\n"
+            f"Nous vous attendons {when} ({fr_date(appt.starts_at)}) pour « {appt.service.name} » avec {stylist}.\n"
+            f"Durée prévue : environ {appt.computed_duration_min} minutes. Paiement au salon (Cash / Interac).\n\n"
+            f"Besoin de changer la date ou l'heure, ou d'annuler ? {link}\n\n"
+            f"{SALON}\n"
+            f"Pour choisir comment recevoir nos messages : {base_url()}/clients/me"
+        ),
+        "sms_body": f"{SALON} : rappel, rendez-vous {when} avec {stylist}. Modifier ou annuler : {link}",
+    }

@@ -5,7 +5,7 @@
 <a href="/admin" class="link-gold text-sm">← Administration</a>
 <div class="mb-6 mt-4 flex flex-wrap items-center justify-between gap-4">
   <h1>Rendez-vous</h1>
-  <span class="flex gap-3"><a href="/admin/messages" class="btn-outline btn-sm">Messages envoyés</a><a href="/admin/appointments/new" class="btn-gold btn-sm">+ Nouveau rendez-vous (téléphone)</a></span>
+  <span class="flex gap-3"><a href="/admin/appointments/new" class="btn-gold btn-sm">+ Nouveau rendez-vous (téléphone)</a></span>
 </div>
 {% if request.query_params.get('quoted') %}<p class="ok mb-5" role="status">Prix envoyé à la cliente. Le rendez-vous sera confirmé quand elle l'aura accepté.</p>{% endif %}
 {% if request.query_params.get('created') %}<p class="ok mb-5" role="status">Rendez-vous créé.</p>{% endif %}

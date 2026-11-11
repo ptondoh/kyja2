@@ -36,9 +36,11 @@ if not settings.is_dev and (settings.secret_key == "change-me" or len(settings.s
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    task = asyncio.create_task(sweeper.run_forever())  # annule les prix restés sans réponse
+    # Avec Celery, c'est le planificateur (beat) qui annule les prix sans réponse ; sinon le site s'en charge lui-même.
+    task = None if settings.use_celery else asyncio.create_task(sweeper.run_forever())
     yield
-    task.cancel()
+    if task:
+        task.cancel()
 
 
 # Pas de documentation OpenAPI publique en production.

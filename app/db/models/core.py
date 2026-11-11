@@ -310,6 +310,8 @@ class Appointment(Base):
     quote_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)  # empreinte du lien
     quote_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancel_reason: Mapped[str | None] = mapped_column(String(40))  # client, quote_declined, quote_expired, admin…
+    reminder_day_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # rappel de la veille
+    reminder_hours_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # rappel 2 h avant
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     client: Mapped[User] = relationship(foreign_keys=[client_id])

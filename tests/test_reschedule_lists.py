@@ -126,3 +126,16 @@ def test_admin_lists_search_and_messages_filter(booked):
     assert "Marie" in a.get("/admin/hairdressers", params={"q": "marie"}).text
     assert a.get("/admin/messages", params={"canal": "sms", "statut": "failed"}).status_code == 200
     assert a.get("/notifications", params={"page": "2"}).status_code in (200, 303)
+
+
+def test_messages_page_lists_only_what_was_written_to_clients(booked):
+    move(booked["cl"], booked["appt"], next_weekday(1), 14)  # l'équipe reçoit « Rendez-vous déplacé… » (alerte + courriel)
+    with SessionLocal() as db:
+        db.add(MessageOutbox(user_id=db.scalar(select(User.id).where(User.email == "cliente@test.kyja")), channel="email",
+                             to_address="cliente@test.kyja", subject="Rappel pour la cliente", body="Bonjour"))  # fmt: skip
+        db.commit()
+    a = visitor()
+    make_admin(a)
+    html = a.get("/admin/messages").text
+    assert "Rappel pour la cliente" in html
+    assert "déplacé par la cliente" not in html and "Nouveau rendez-vous" not in html

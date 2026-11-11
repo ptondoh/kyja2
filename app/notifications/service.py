@@ -1,6 +1,5 @@
 """Avertir les personnes : alerte dans le site, courriel et SMS, selon le choix de chacune."""
-import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
@@ -8,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.base import SessionLocal
 from app.db.models.core import Appointment, MessageOutbox, Notification, Role, User
 from app.notifications import providers
+from app.tasks import dispatch
 
 # Adresses de remplacement créées par le système : on n'y envoie jamais de courriel.
 UNDELIVERABLE_SUFFIXES = ("@sans-courriel.kyja", "@supprime.kyja")
@@ -86,8 +86,7 @@ def notify_staff(db: Session, appointment: Appointment, *, kind: str, title: str
                 db, person, kind=kind, title=title, body=body, url=url, appointment=appointment,
                 email_subject=f"{title} — KYJA BEAUTÉ", email_body=f"{body}\n\nOuvrir : {providers_base_url()}{url}", sms_body=f"KYJA : {title}. {body}"[:300],
             )  # fmt: skip
-    if queued:  # courriel / SMS selon les choix de chaque personne, sans retarder la réponse
-        threading.Thread(target=deliver_in_background, args=(queued,), daemon=True).start()
+    dispatch.send_messages(queued, threaded=True)  # courriel / SMS selon les choix de chaque personne, sans retarder la réponse
 
 
 def providers_base_url() -> str:
@@ -99,8 +98,12 @@ def providers_base_url() -> str:
 # --- envoi -----------------------------------------------------------------------------------------------------------
 
 
-def deliver(db: Session, ids: list[int]) -> None:
-    """Envoie les messages en file. Un échec est noté (et réessayable), il ne bloque jamais les autres."""
+def deliver(db: Session, ids: list[int]) -> list[int]:
+    """Envoie les messages en file. Un échec est noté (et réessayable), il ne bloque jamais les autres.
+
+    Retourne les identifiants à réessayer plus tard (échec, tentatives restantes).
+    """
+    retry: list[int] = []
     for row in db.scalars(select(MessageOutbox).where(MessageOutbox.id.in_(ids), MessageOutbox.status.in_(("queued", "failed")))):
         if row.attempts >= MAX_ATTEMPTS and row.status == "failed":
             continue
@@ -112,7 +115,19 @@ def deliver(db: Session, ids: list[int]) -> None:
         else:
             row.status, row.provider, row.provider_ref, row.error = ("sent" if result.status == "sent" else "preview"), result.provider, result.ref, None
             row.sent_at = now()
+        if row.status == "failed" and row.attempts < MAX_ATTEMPTS:
+            retry.append(row.id)
         db.commit()
+    return retry
+
+
+def retry_stuck(db: Session, older_than_minutes: int = 10) -> int:
+    """Messages restés « en file » (processus arrêté en plein envoi) : on les envoie maintenant. Retourne leur nombre."""
+    cutoff = now() - timedelta(minutes=older_than_minutes)
+    ids = list(db.scalars(select(MessageOutbox.id).where(MessageOutbox.status == "queued", MessageOutbox.created_at < cutoff)))
+    if ids:
+        deliver(db, ids)
+    return len(ids)
 
 
 def deliver_in_background(ids: list[int]) -> None:

@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     secret_key: str = "change-me"
     database_url: str = "postgresql+psycopg://kyja:kyja@localhost:5432/kyja"
     redis_url: str = "redis://localhost:6379/0"
+    # Tâches de fond (Celery + Redis). Désactivé par défaut : le site fonctionne seul, sans Redis.
+    use_celery: bool = False
+    celery_broker_url: str = ""  # vide : on utilise redis_url
+    celery_always_eager: bool = False  # tests : les tâches s'exécutent sur place
 
     r2_endpoint: str = ""
     r2_access_key: str = ""
