@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Promotion — Admin{% endblock %}
+{% block content %}
+<a href="/admin/marketing" class="link-gold text-sm">← Promotions</a>
+<h1 class="mb-2 mt-4">{{ campaign.subject }}</h1>
+<p><span class="status status-{{ 'confirmed' if campaign.status == 'draft' else 'completed' }}">{{ {'draft': 'Brouillon : pas encore envoyée', 'sending': 'Envoi en cours', 'sent': 'Envoyée'}[campaign.status] }}</span></p>
+{% if test_sent %}<p class="ok mt-4" role="status">Essai envoyé à {{ current_user.email }} (visible dans Messages envoyés tant que Resend n'est pas configuré).</p>{% endif %}
+{% if errors %}<div class="error mt-4" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+<div class="panel mt-6">
+  <dl class="recap">
+    <dt>Canaux</dt><dd>{{ 'Courriel' if campaign.send_email }}{{ ' + ' if campaign.send_email and campaign.send_sms }}{{ 'SMS' if campaign.send_sms }}</dd>
+    {% if campaign.status == 'draft' %}
+    <dt>Destinataires</dt><dd>{{ audience.consenting }} personne{{ 's' if audience.consenting > 1 }} {{ 'ont' if audience.consenting > 1 else 'a' }} accepté les promotions
+      <span class="muted">({{ audience.email if campaign.send_email else 0 }} courriel{{ 's' if audience.email != 1 }}, {{ audience.sms if campaign.send_sms else 0 }} SMS)</span></dd>
+    {% else %}
+    <dt>Destinataires</dt><dd>{{ campaign.recipient_count }} personne{{ 's' if campaign.recipient_count != 1 }}
+      <span class="muted">· {% for k, label in [('sent','envoyés'),('preview','en aperçu'),('failed','en échec'),('queued','en file')] %}{{ stats.get(k, 0) }} {{ label }}{% if not loop.last %}, {% endif %}{% endfor %}</span></dd>
+    <dt>Envoyée le</dt><dd>{{ campaign.sent_at | fr_date }} à {{ campaign.sent_at | fr_time }}</dd>
+    {% endif %}
+    <dt>Message</dt><dd class="whitespace-pre-line text-base">{{ campaign.body }}</dd>
+    {% if campaign.send_sms %}<dt>SMS</dt><dd class="text-base">{{ campaign.sms_text }}</dd>{% endif %}
+  </dl>
+  {% if campaign.status == 'draft' %}
+  {% for b in blockers %}<p class="price-notice mb-4" role="note">{{ b }} <a href="/admin/settings" class="link-gold">Ouvrir les Réglages</a></p>{% endfor %}
+  {% if audience.consenting == 0 %}<p class="price-notice mb-4" role="note">Personne n'a encore accepté de recevoir des promotions : rien ne serait envoyé.</p>{% endif %}
+  <div class="flex flex-wrap items-center gap-3">
+    {% if campaign.send_email %}
+    <form method="post" action="/admin/marketing/{{ campaign.id }}/test"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn-outline">M'envoyer un essai par courriel</button></form>
+    {% endif %}
+    <form method="post" action="/admin/marketing/{{ campaign.id }}/send"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn-gold" {% if blockers or audience.consenting == 0 %}disabled{% endif %}>Envoyer à {{ audience.consenting }} personne{{ 's' if audience.consenting != 1 }}</button></form>
+    <a href="/admin/marketing/new" class="link-gold">Modifier (recommencer)</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

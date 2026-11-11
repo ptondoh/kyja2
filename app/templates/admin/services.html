@@ -20,20 +20,20 @@
 {% endif %}
 {% if show_archived %}<p class="muted mb-4">Ces prestations ont des rendez-vous passés : elles ne sont plus visibles sur le site, mais l'historique est conservé.</p>{% endif %}
 {% from "_filters.html" import filter_form, box %}
-{{ filter_form('filters', '/admin/services', q or cat, {'archived': 1} if show_archived else {}) }}
+{{ filter_form('filters', '/admin/services', q or cat or statut, {'archived': 1} if show_archived else {}) }}
 <div class="panel overflow-x-auto !p-2">
-<table class="admin-table"><thead><tr><th>Nom</th><th>Catégorie</th><th>Prix</th><th>Durée</th><th>{{ 'Archivée le' if show_archived else 'Actif' }}</th><th></th></tr>
-<tr class="filter-row"><th>{{ box('filters', 'q', q, 'Nom…', 'Filtrer par nom') }}</th><th>{{ box('filters', 'categorie', cat, 'Catégorie…', 'Filtrer par catégorie', categories | map(attribute='name') | list) }}</th><th></th><th></th><th></th><th></th></tr></thead><tbody>
+<table class="admin-table"><thead><tr><th>Nom</th><th>Catégorie</th><th>Prix</th><th>Durée</th><th>{{ 'Archivée le' if show_archived else 'Statut' }}</th><th></th></tr>
+<tr class="filter-row"><th>{{ box('filters', 'q', q, 'Nom…', 'Filtrer par nom') }}</th><th>{{ box('filters', 'categorie', cat, 'Catégorie…', 'Filtrer par catégorie', categories | map(attribute='name') | list) }}</th><th></th><th></th><th>{% if not show_archived %}{{ box('filters', 'statut', statut, 'Statut…', 'Filtrer par statut', status_labels) }}{% endif %}</th><th></th></tr></thead><tbody>
 {% for s in items %}<tr>
   <td><a class="link-gold" href="/admin/services/{{ s.id }}">{{ s.name }}</a>{% if s.is_custom_request %} <span class="status status-confirmed">intégrée</span>{% endif %}</td>
   <td>{{ s.category.name if s.category else '—' }}</td>
   <td>{{ (s.price | money) if s.price is not none else 'sur devis' }}</td>
   <td>{{ s.base_duration_min }} min</td>
-  <td>{{ (s.archived_at | fr_date) if show_archived else ('oui' if s.is_active else 'non') }}</td>
+  <td>{% if show_archived %}{{ s.archived_at | fr_date }}{% else %}<span class="status status-{{ 'confirmed' if s.is_active else 'cancelled' }}">{{ 'Active' if s.is_active else 'Désactivée' }}</span>{% endif %}</td>
   <td class="whitespace-nowrap">
     {% if show_archived %}
     <form method="post" action="/admin/services/{{ s.id }}/restore" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn-outline btn-sm">Restaurer</button></form>
-    {% elif not s.is_custom_request %}<a href="/admin/services/{{ s.id }}/delete" class="btn-danger">Supprimer…</a>{% endif %}
+    {% elif not s.is_custom_request %}<form method="post" action="/admin/services/{{ s.id }}/toggle" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}"><button type="submit" class="btn-outline btn-sm">{{ 'Désactiver' if s.is_active else 'Activer' }}</button></form> <a href="/admin/services/{{ s.id }}/delete" class="btn-danger">Supprimer…</a>{% endif %}
   </td>
 </tr>{% else %}<tr><td colspan="6" class="muted">{{ 'Aucune prestation archivée.' if show_archived else 'Aucune prestation.' }}</td></tr>{% endfor %}
 </tbody></table>

@@ -44,6 +44,7 @@ from app.db.models.core import (
     FinancialRecord,
     Hairdresser,
     Media,
+    MarketingCampaign,
     MessageOutbox,
     Notification,
     PricingMode,
@@ -96,6 +97,7 @@ def _purge(db) -> None:
     db.execute(delete(BookingDraft))
     db.execute(delete(Notification))  # base de test : on purge tout
     db.execute(delete(MessageOutbox))
+    db.execute(delete(MarketingCampaign))
     cond = []
     if uids:
         cond.append(Appointment.client_id.in_(uids))

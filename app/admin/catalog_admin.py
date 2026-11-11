@@ -12,6 +12,8 @@ from starlette.background import BackgroundTask
 
 from app.auth.deps import require_role
 from app.db.base import get_db
+from app.filters import apply_status, safe_next, status_choices
+from app.pagination import like, paginate
 from app.db.models.core import Category, Product, Role, Service, User
 from app.security_middleware import verify_csrf
 from app.services import lifecycle
@@ -43,14 +45,22 @@ def _name_error(db: Session, raw: str, exclude_id: int | None = None) -> str | N
     return "Une catégorie porte déjà ce nom." if db.scalar(q) else None
 
 
-def _list_context(db: Session, **extra) -> dict:
-    rows = db.execute(
-        select(Category, func.count(Service.id))
-        .outerjoin(Service, Service.category_id == Category.id)
-        .group_by(Category.id)
-        .order_by(Category.name)
-    ).all()
-    return {"rows": rows, **extra}
+def _list_context(db: Session, request: Request, **extra) -> dict:
+    """Liste filtrable et paginée des catégories, avec le nombre de prestations de chacune."""
+    params = request.query_params
+    q, statut = (params.get("q") or "").strip(), (params.get("statut") or "").strip()
+    query = select(Category).order_by(Category.name)
+    if q:
+        query = query.where(Category.name.ilike(like(q), escape="\\"))
+    query = apply_status(query, Category.is_active, statut, feminine=True)
+    pg = paginate(db, query, params.get("page"))
+    counts = dict(
+        db.execute(
+            select(Service.category_id, func.count(Service.id)).where(Service.category_id.in_([c.id for c in pg.items])).group_by(Service.category_id)
+        ).all()
+    )
+    rows = [(c, counts.get(c.id, 0)) for c in pg.items]
+    return {"rows": rows, "pg": pg, "q": q, "statut": statut, "status_labels": list(status_choices(True).values()), **extra}
 
 
 # --- Catégories -------------------------------------------------------------------------------------------------
@@ -58,7 +68,7 @@ def _list_context(db: Session, **extra) -> dict:
 
 @router.get("/categories")
 def categories_list(request: Request, db: Session = Depends(get_db), user: User = Depends(require_role(Role.admin))):
-    return render(request, "admin/categories.html", current_user=user, **_list_context(db))
+    return render(request, "admin/categories.html", current_user=user, **_list_context(db, request))
 
 
 @router.post("/categories")
@@ -67,7 +77,7 @@ def category_create(
 ):
     error = _name_error(db, name)
     if error:
-        return render(request, "admin/categories.html", status_code=400, current_user=user, **_list_context(db, errors=[error], new_name=name))
+        return render(request, "admin/categories.html", status_code=400, current_user=user, **_list_context(db, request, errors=[error], new_name=name))
     db.add(Category(name=name.strip()))
     db.commit()
     return _redirect("/admin/categories?saved=created")
@@ -84,10 +94,19 @@ def category_rename(
     category = _category_or_404(db, category_id)
     error = _name_error(db, name, exclude_id=category.id)
     if error:
-        return render(request, "admin/categories.html", status_code=400, current_user=user, **_list_context(db, errors=[error]))
+        return render(request, "admin/categories.html", status_code=400, current_user=user, **_list_context(db, request, errors=[error]))
     category.name = name.strip()
     db.commit()
     return _redirect("/admin/categories?saved=renamed")
+
+
+@router.post("/categories/{category_id}/toggle")
+def category_toggle(category_id: int, next: str = Form(""), db: Session = Depends(get_db)):
+    """Catégorie désactivée : elle n'apparaît plus comme filtre sur le site (ses prestations restent visibles)."""
+    category = _category_or_404(db, category_id)
+    category.is_active = not category.is_active
+    db.commit()
+    return _redirect(safe_next(next, "/admin/categories"))
 
 
 @router.get("/categories/{category_id}/delete")

@@ -17,7 +17,7 @@ from app.auth.security import hash_password
 from app.bookings import engine, quotes
 from app.bookings.engine import BookingError
 from app.db.base import get_db
-from app.filters import matching, plain as _plain
+from app.filters import apply_status, matching, plain as _plain, safe_next, status_choices
 from app.pagination import like, paginate
 from app.db.models.core import (
     Appointment,
@@ -91,8 +91,14 @@ def hairdressers_list(
     )
     if q:
         query = query.where(or_(User.full_name.ilike(like(q), escape="\\"), User.email.ilike(like(q), escape="\\")))
+    statut = (request.query_params.get("statut") or "").strip()
+    if not archived:
+        query = apply_status(query, Hairdresser.is_active, statut, feminine=True)
     pg = paginate(db, query, request.query_params.get("page"))
-    return render(request, "admin/hairdressers.html", current_user=user, items=pg.items, pg=pg, q=q, show_archived=archived)
+    return render(
+        request, "admin/hairdressers.html", current_user=user, items=pg.items, pg=pg, q=q, show_archived=archived,
+        statut=statut, status_labels=list(status_choices(True).values()),
+    )  # fmt: skip
 
 
 @router.post("/hairdressers")
@@ -127,7 +133,7 @@ def hairdresser_create(
             1,
         )
         return render(
-            request, "admin/hairdressers.html", status_code=400, current_user=user, items=pg.items, pg=pg, q="",
+            request, "admin/hairdressers.html", status_code=400, current_user=user, items=pg.items, pg=pg, q="", statut="", status_labels=list(status_choices(True).values()),
             errors=errors, form={"full_name": full_name, "email": email, "coefficient": coefficient},
         )  # fmt: skip
     account = User(email=email, password_hash=hash_password(password), role=Role.hairdresser, full_name=full_name)
@@ -230,12 +236,25 @@ def slot_delete(slot_id: int, db: Session = Depends(get_db)):
 # --- Équipements ------------------------------------------------------------------------------
 
 
+def _resources_context(db: Session, request: Request, **extra) -> dict:
+    params = request.query_params
+    f = {k: (params.get(k) or "").strip() for k in ("kind", "q", "statut")}
+    query = select(Resource).order_by(Resource.kind, Resource.id)
+    if f["kind"]:
+        query = query.where(Resource.kind.ilike(like(f["kind"]), escape="\\"))
+    if f["q"]:
+        query = query.where(Resource.name.ilike(like(f["q"]), escape="\\"))
+    query = apply_status(query, Resource.is_active, f["statut"])
+    pg = paginate(db, query, params.get("page"))
+    kinds = list(db.scalars(select(Resource.kind).distinct().order_by(Resource.kind)))
+    return {"items": pg.items, "pg": pg, "f": f, "kinds": kinds, "status_labels": list(status_choices().values()), **extra}
+
+
 @router.get("/resources")
 def resources_list(
     request: Request, db: Session = Depends(get_db), user: User = Depends(require_role(Role.admin))
 ):
-    items = db.scalars(select(Resource).order_by(Resource.kind, Resource.id)).all()
-    return render(request, "admin/resources.html", current_user=user, items=items)
+    return render(request, "admin/resources.html", current_user=user, **_resources_context(db, request))
 
 
 @router.post("/resources")
@@ -253,21 +272,20 @@ def resource_create(
     if not name or len(name) > 100:
         errors.append("Le nom est requis (100 caractères max).")
     if errors:
-        items = db.scalars(select(Resource).order_by(Resource.kind, Resource.id)).all()
-        return render(request, "admin/resources.html", status_code=400, current_user=user, items=items, errors=errors)
+        return render(request, "admin/resources.html", status_code=400, current_user=user, **_resources_context(db, request, errors=errors))
     db.add(Resource(kind=kind, name=name))
     db.commit()
     return _redirect("/admin/resources")
 
 
 @router.post("/resources/{resource_id}/toggle")
-def resource_toggle(resource_id: int, db: Session = Depends(get_db)):
+def resource_toggle(resource_id: int, next: str = Form(""), db: Session = Depends(get_db)):
     r = db.get(Resource, resource_id)
     if not r:
         raise HTTPException(status_code=404)
     r.is_active = not r.is_active
     db.commit()
-    return _redirect("/admin/resources")
+    return _redirect(safe_next(next, "/admin/resources"))
 
 
 # --- Rendez-vous ---------------------------------------------------------------------------------

@@ -11,6 +11,7 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "booking_horizon_days": "60",  # jusqu'à quand on peut réserver
     "booking_min_notice_min": "60",  # délai minimal avant le début d'un rendez-vous
     "quote_validity_days": "7",  # durée de validité du lien « confirmer le prix » envoyé à la cliente
+    "salon_address": "",  # adresse postale du salon : obligatoire au bas des courriels promotionnels (LCAP / CASL)
     "salon_phone": "",  # affiché sur le site si renseigné (réservation par téléphone)
 }
 

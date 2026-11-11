@@ -16,6 +16,8 @@
     <label>Délai minimal avant un rendez-vous (minutes) <input type="number" name="booking_min_notice_min" min="0" max="10080" required value="{{ booking_min_notice_min }}"></label>
     <label>Téléphone du salon <span class="muted">affiché pour les clientes qui préfèrent réserver par téléphone (laisser vide pour ne rien afficher)</span>
       <input type="tel" name="salon_phone" maxlength="30" value="{{ salon_phone_value or '' }}" placeholder="514 555-0123"></label>
+    <label>Adresse postale du salon <span class="muted">écrite au bas des courriels promotionnels (obligatoire pour en envoyer)</span>
+      <input type="text" name="salon_address" maxlength="300" value="{{ salon_address_value or '' }}" placeholder="123, rue Exemple, Montréal (Québec) H0H 0H0"></label>
     <h3 class="mt-4 text-xl">Vidéos téléversées</h3>
     <label>Taille maximale d'une vidéo (Mo) <input type="number" name="video_max_mb" min="1" max="2000" required value="{{ video_max_mb }}"></label>
     <label>Durée maximale d'une vidéo (secondes) <input type="number" name="video_max_seconds" min="10" max="3600" required value="{{ video_max_seconds }}"></label>

@@ -1,17 +1,23 @@
 {% extends "base.html" %}
+{% from "_pager.html" import pager %}
+{% from "_filters.html" import filter_form, box %}
 {% block title %}Équipements — Admin{% endblock %}
 {% block content %}
 <a href="/admin" class="link-gold text-sm">← Administration</a>
 <h1 class="mb-2 mt-4">Équipements</h1>
 <p class="muted mb-6">Bacs de lavage, casques… Une prestation qui requiert un type d'équipement ne peut être réservée que s'il en reste un de libre.</p>
 <div class="grid gap-8 lg:grid-cols-[1fr_22rem]">
+  <div>
+  {{ filter_form('filters', '/admin/resources', f.kind or f.q or f.statut) }}
   <div class="panel overflow-x-auto !p-2">
-    <table class="admin-table"><thead><tr><th>Type</th><th>Nom</th><th>Actif</th><th></th></tr></thead><tbody>
-    {% for r in items %}<tr><td>{{ r.kind }}</td><td>{{ r.name }}</td><td>{{ 'oui' if r.is_active else 'non' }}</td>
-      <td><form method="post" action="/admin/resources/{{ r.id }}/toggle" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="btn-outline btn-sm">{{ 'Désactiver' if r.is_active else 'Réactiver' }}</button></form></td></tr>
+    <table class="admin-table"><thead><tr><th>Type</th><th>Nom</th><th>Statut</th><th></th></tr>
+    <tr class="filter-row"><th>{{ box('filters', 'kind', f.kind, 'Type…', 'Filtrer par type', kinds) }}</th><th>{{ box('filters', 'q', f.q, 'Nom…', 'Filtrer par nom') }}</th><th>{{ box('filters', 'statut', f.statut, 'Statut…', 'Filtrer par statut', status_labels) }}</th><th></th></tr></thead><tbody>
+    {% for r in items %}<tr><td>{{ r.kind }}</td><td>{{ r.name }}</td><td><span class="status status-{{ 'confirmed' if r.is_active else 'cancelled' }}">{{ 'Actif' if r.is_active else 'Désactivé' }}</span></td>
+      <td><form method="post" action="/admin/resources/{{ r.id }}/toggle" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}"><button type="submit" class="btn-outline btn-sm">{{ 'Désactiver' if r.is_active else 'Réactiver' }}</button></form></td></tr>
     {% else %}<tr><td colspan="4" class="muted">Aucun équipement.</td></tr>{% endfor %}
     </tbody></table>
+    {{ pager(pg, request) }}
+  </div>
   </div>
   <div class="panel">
     <h2 class="mb-4">Nouvel équipement</h2>

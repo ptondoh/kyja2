@@ -48,6 +48,15 @@ Si Redis tombe, le site continue de répondre et envoie alors les messages lui-m
 
 Les courriels et SMS restent en « aperçu » (rien ne part) tant que Resend et Twilio ne sont pas configurés ; ils se lisent dans **Admin → Messages envoyés**.
 
+## Utilisateurs, promotions et statuts (administration)
+
+- **Admin → Utilisateurs** : liste des comptes avec courriel, téléphone, rôle, statut et accord pour les promotions (filtres en tête de colonne).
+- **Admin → Promotions** : écrire un courriel et/ou SMS promotionnel, voir le nombre de destinataires, s'envoyer un essai, puis envoyer.
+  Seules les clientes qui ont **accepté** les promotions le reçoivent ; chaque message contient un lien de désabonnement.
+  Avant le premier envoi, renseigner l'**adresse postale du salon** dans **Admin → Réglages** (obligatoire, LCAP / CASL).
+  Sans clé Resend ni compte Twilio, les messages restent en « aperçu » dans **Admin → Messages envoyés**.
+- **Actif / désactivé** : bouton « Désactiver / Activer » dans les listes des prestations, produits, catégories et équipements, et filtre « Statut » dans chaque liste.
+
 ## Design (Tailwind, sans Node)
 
 Le binaire autonome Tailwind v4.3.3 se place dans `bin/tailwindcss.exe` (non versionné, voir

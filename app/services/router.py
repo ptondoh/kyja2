@@ -29,7 +29,7 @@ def list_services(
     # Regroupées par catégorie (sans catégorie à la fin), puis par nom.
     services = sorted(db.scalars(q).unique().all(), key=lambda s: (s.category is None, s.category.name.lower() if s.category else "", s.name.lower()))
     categories = db.scalars(
-        select(Category.name).join(Service, Service.category_id == Category.id).where(*visible).distinct().order_by(Category.name)
+        select(Category.name).join(Service, Service.category_id == Category.id).where(*visible, Category.is_active.is_(True)).distinct().order_by(Category.name)
     ).all()
     return render(
         request,

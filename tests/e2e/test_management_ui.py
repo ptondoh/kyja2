@@ -23,8 +23,8 @@ def admin_login(page, next_url="/admin"):
 
 def test_create_category_then_pick_it_in_the_dropdown(page, shot, salon):
     admin_login(page, "/admin/categories")
-    page.locator("form[action='/admin/categories'] input[name=name]").fill("TEST Coloration")
-    page.locator("form[action='/admin/categories'] button[type=submit]").click()
+    page.locator("form[method=post][action='/admin/categories'] input[name=name]").fill("TEST Coloration")
+    page.locator("form[method=post][action='/admin/categories'] button[type=submit]").click()
     expect(page.locator("[role=status]")).to_have_text("Catégorie créée.")
 
     page.goto("/admin/services/new")

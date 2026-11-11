@@ -8,12 +8,12 @@
   <a href="/admin/products/new" class="btn-gold btn-sm">+ Nouveau produit</a>
 </div>
 {% from "_filters.html" import filter_form, box %}
-{{ filter_form('filters', '/admin/products', q or stock) }}
+{{ filter_form('filters', '/admin/products', q or stock or statut) }}
 <div class="panel overflow-x-auto !p-2">
 {% if request.query_params.get('removed') %}<p class="ok mb-5" role="status">Produit supprimé : {{ request.query_params.get('removed') }}.</p>{% endif %}
-<table class="admin-table"><thead><tr><th>Nom</th><th>Prix</th><th>Stock</th><th>Actif</th><th></th></tr>
-<tr class="filter-row"><th>{{ box('filters', 'q', q, 'Nom…', 'Filtrer par nom') }}</th><th></th><th>{{ box('filters', 'stock', stock, 'Stock…', 'Filtrer par stock', stock_choices) }}</th><th></th><th></th></tr></thead><tbody>
-{% for p in items %}<tr><td><a class="link-gold" href="/admin/products/{{ p.id }}">{{ p.name }}</a></td><td>{{ "%.2f"|format(p.price) }} $</td><td>{{ p.stock }}</td><td>{{ 'oui' if p.is_active else 'non' }}</td><td><a href="/admin/products/{{ p.id }}/delete" class="btn-danger">Supprimer…</a></td></tr>
+<table class="admin-table"><thead><tr><th>Nom</th><th>Prix</th><th>Stock</th><th>Statut</th><th></th></tr>
+<tr class="filter-row"><th>{{ box('filters', 'q', q, 'Nom…', 'Filtrer par nom') }}</th><th></th><th>{{ box('filters', 'stock', stock, 'Stock…', 'Filtrer par stock', stock_choices) }}</th><th>{{ box('filters', 'statut', statut, 'Statut…', 'Filtrer par statut', status_labels) }}</th><th></th></tr></thead><tbody>
+{% for p in items %}<tr><td><a class="link-gold" href="/admin/products/{{ p.id }}">{{ p.name }}</a></td><td>{{ "%.2f"|format(p.price) }} $</td><td>{{ p.stock }}</td><td><span class="status status-{{ 'confirmed' if p.is_active else 'cancelled' }}">{{ 'Actif' if p.is_active else 'Désactivé' }}</span></td><td class="whitespace-nowrap"><form method="post" action="/admin/products/{{ p.id }}/toggle" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}"><button type="submit" class="btn-outline btn-sm">{{ 'Désactiver' if p.is_active else 'Activer' }}</button></form> <a href="/admin/products/{{ p.id }}/delete" class="btn-danger">Supprimer…</a></td></tr>
 {% else %}<tr><td colspan="5" class="muted">Aucun produit.</td></tr>{% endfor %}
 </tbody></table>
 {{ pager(pg, request) }}

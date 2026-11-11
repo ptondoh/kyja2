@@ -8,7 +8,7 @@ Liste vivante des choses qui attendent un accès, une décision ou du temps. Les
       puis renseigner `RESEND_API_KEY` et `EMAIL_FROM` dans `.env`. D'ici là, les courriels sont enregistrés
       en « aperçu » et visibles dans **Admin → Messages envoyés**. Une fois la clé en place :
   - [ ] envoyer un vrai courriel de test et vérifier l'arrivée (hors courriers indésirables) ;
-  - [ ] ajouter la page de confirmation de désabonnement pour les messages marketing (LCAP/CASL).
+  - [ ] ajouter l'en-tête `List-Unsubscribe` aux courriels promotionnels (désabonnement en un clic dans Gmail/Outlook) ; le lien de désabonnement dans le message existe déjà.
 - [ ] **Compte Twilio (SMS)** : créer un compte, acheter un numéro canadien, puis renseigner `TWILIO_ACCOUNT_SID`,
       `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` dans `.env`. D'ici là, les SMS sont en « aperçu » (Admin → Messages envoyés).
   - [ ] envoyer un vrai SMS de test ;
@@ -36,6 +36,7 @@ Liste vivante des choses qui attendent un accès, une décision ou du temps. Les
 - [ ] Produits : archivage au lieu de la suppression dès qu'il y aura des commandes.
 
 ## Fait
+- [x] Admin : liste des utilisateurs avec coordonnées, promotions aux clientes consentantes (essai, désabonnement, adresse du salon), statut actif / désactivé et filtre « Statut » partout.
 - [x] Rappels de rendez-vous (la veille et 2 h avant), envoi des messages et nettoyages par Celery (repli intégré sans Redis).
 - [x] Prix final d'une demande sur mesure : proposition, lien de confirmation, alertes (site, navigateur, courriel/SMS en aperçu).
 - [x] Agenda de la coiffeuse (« Mon agenda »).

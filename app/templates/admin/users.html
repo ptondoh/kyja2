@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_pager.html" import pager %}
+{% from "_filters.html" import filter_form, box %}
+{% block title %}Utilisateurs — Admin{% endblock %}
+{% block content %}
+<a href="/admin" class="link-gold text-sm">← Administration</a>
+<div class="mb-6 mt-4 flex flex-wrap items-center justify-between gap-4">
+  <h1>Utilisateurs</h1>
+  <a href="/admin/marketing" class="btn-gold btn-sm">Envoyer une promotion</a>
+</div>
+<p class="muted mb-4">Toutes les personnes qui ont un compte, avec leurs coordonnées. La colonne « Promotions » indique si la personne a accepté de recevoir des messages promotionnels : sans son accord, aucune promotion ne lui est envoyée.</p>
+{{ filter_form('filters', '/admin/users', f.q or f.role or f.statut or f.promo) }}
+<div class="panel overflow-x-auto !p-2">
+<table class="admin-table"><thead><tr><th>Nom</th><th>Courriel</th><th>Téléphone</th><th>Rôle</th><th>Statut</th><th>Promotions</th><th>Inscrit le</th></tr>
+<tr class="filter-row">
+  <th colspan="3">{{ box('filters', 'q', f.q, 'Nom, courriel ou téléphone…', 'Rechercher une personne') }}</th>
+  <th>{{ box('filters', 'role', f.role, 'Rôle…', 'Filtrer par rôle', roles) }}</th>
+  <th>{{ box('filters', 'statut', f.statut, 'Statut…', 'Filtrer par statut', status_labels) }}</th>
+  <th>{{ box('filters', 'promo', f.promo, 'Promotions…', 'Filtrer par accord pour les promotions', promos) }}</th>
+  <th></th>
+</tr></thead><tbody>
+{% for u in items %}<tr>
+  <td>{{ u.full_name }}</td>
+  <td>{% if u.anonymized_at %}<span class="muted">—</span>{% else %}{{ u.email }}{% endif %}</td>
+  <td>{{ u.phone or '—' }}</td>
+  <td>{{ role_labels[u.role.value] }}</td>
+  <td>{% if u.anonymized_at %}<span class="status status-cancelled">Supprimé</span>{% elif u.is_active %}<span class="status status-confirmed">Actif</span>{% else %}<span class="status status-cancelled">Désactivé</span>{% endif %}</td>
+  <td>{% if u.role.value != 'client' %}<span class="muted">—</span>{% elif consent.get(u.id) %}<span class="status status-completed">Accepte</span>{% else %}<span class="muted">Non</span>{% endif %}</td>
+  <td>{{ u.created_at | fr_date }}</td>
+</tr>{% else %}<tr><td colspan="7" class="muted">Aucun utilisateur.</td></tr>{% endfor %}
+</tbody></table>
+{{ pager(pg, request) }}
+</div>
+{% endblock %}

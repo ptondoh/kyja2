@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% from "_pager.html" import pager %}
+{% from "_filters.html" import filter_form, box %}
 {% block title %}Catégories — Admin{% endblock %}
 {% block content %}
 <a href="/admin" class="link-gold text-sm">← Administration</a>
@@ -13,9 +15,12 @@
 {% if errors %}<div class="error mb-5" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
 
 <div class="grid gap-8 lg:grid-cols-[1fr_22rem]">
+  <div>
+  {{ filter_form('filters', '/admin/categories', q or statut) }}
   <div class="panel overflow-x-auto !p-2">
     <table class="admin-table">
-      <thead><tr><th>Nom</th><th>Prestations</th><th></th></tr></thead>
+      <thead><tr><th>Nom</th><th>Prestations</th><th>Statut</th><th></th></tr>
+      <tr class="filter-row"><th>{{ box('filters', 'q', q, 'Nom…', 'Filtrer par nom') }}</th><th></th><th>{{ box('filters', 'statut', statut, 'Statut…', 'Filtrer par statut', status_labels) }}</th><th></th></tr></thead>
       <tbody>
       {% for c, count in rows %}
       <tr>
@@ -27,11 +32,14 @@
           </form>
         </td>
         <td>{{ count }}</td>
-        <td><a href="/admin/categories/{{ c.id }}/delete" class="btn-danger">Supprimer…</a></td>
+        <td><span class="status status-{{ 'confirmed' if c.is_active else 'cancelled' }}">{{ 'Active' if c.is_active else 'Désactivée' }}</span></td>
+        <td class="whitespace-nowrap"><form method="post" action="/admin/categories/{{ c.id }}/toggle" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}"><button type="submit" class="btn-outline btn-sm">{{ 'Désactiver' if c.is_active else 'Activer' }}</button></form> <a href="/admin/categories/{{ c.id }}/delete" class="btn-danger">Supprimer…</a></td>
       </tr>
-      {% else %}<tr><td colspan="3" class="muted">Aucune catégorie. Créez la première →</td></tr>{% endfor %}
+      {% else %}<tr><td colspan="4" class="muted">Aucune catégorie.</td></tr>{% endfor %}
       </tbody>
     </table>
+    {{ pager(pg, request) }}
+  </div>
   </div>
   <div class="panel">
     <h2 class="mb-4">Nouvelle catégorie</h2>

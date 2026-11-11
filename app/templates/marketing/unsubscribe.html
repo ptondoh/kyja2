@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Se désabonner — KYJA BEAUTÉ{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-lg text-center">
+  {% if not valid %}
+  <h1>Lien non valide</h1>
+  <p class="muted mt-4">Ce lien de désabonnement n'est pas valide. Vous pouvez gérer vos messages dans votre profil, après connexion.</p>
+  <p class="mt-6"><a href="/auth/login?next=/clients/me" class="btn-gold">Ouvrir mon profil</a></p>
+  {% elif done %}
+  <h1>C'est fait</h1>
+  <p class="ok mt-4" role="status">Vous ne recevrez plus de messages promotionnels de KYJA BEAUTÉ. Les messages liés à vos rendez-vous continuent d'arriver.</p>
+  <p class="mt-6"><a href="/" class="link-gold">Retour au site</a></p>
+  {% else %}
+  <h1>Se désabonner des promotions</h1>
+  <p class="muted mt-4">Vous ne recevrez plus nos courriels ni SMS promotionnels. Les messages liés à vos rendez-vous (confirmation, prix, rappels) continuent.</p>
+  <form method="post" action="/unsubscribe/{{ token }}" class="mt-6">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn-gold">Confirmer le désabonnement</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

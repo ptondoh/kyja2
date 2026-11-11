@@ -112,7 +112,7 @@ def test_admin_full_catalog_flow(page, shot, admin_user, media_files):
     # création d'une catégorie (liste déroulante ensuite), puis d'une prestation dans cette catégorie
     page.goto("/admin/categories")
     page.fill("input[name=name] >> nth=-1", "TEST coiffure")
-    page.locator("form[action='/admin/categories'] >> button[type=submit]").click()
+    page.locator("form[method=post][action='/admin/categories'] >> button[type=submit]").click()
     expect(page.locator(".ok").first).to_have_text("Catégorie créée.")
     page.goto("/admin/services/new")
     page.fill("input[name=name]", "TEST Coloration")

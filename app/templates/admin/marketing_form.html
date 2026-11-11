@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Nouvelle promotion — Admin{% endblock %}
+{% block content %}
+<a href="/admin/marketing" class="link-gold text-sm">← Promotions</a>
+<h1 class="mb-2 mt-4">Nouvelle promotion</h1>
+<p class="muted mb-6">Seules les clientes qui ont accepté de recevoir des promotions la recevront : aujourd'hui <strong class="font-medium text-ink">{{ audience.consenting }}</strong> personne{{ 's' if audience.consenting != 1 }}
+  ({{ audience.email }} par courriel, {{ audience.sms }} par SMS). Vous verrez un résumé et pourrez vous envoyer un essai avant l'envoi.</p>
+{% if errors %}<div class="error mb-5" role="alert">{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+<form method="post" action="/admin/marketing/review" class="card max-w-2xl">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <fieldset class="flex flex-wrap gap-6">
+    <legend class="mb-2 text-sm">Canaux</legend>
+    <label class="check"><input type="checkbox" name="send_email" value="true" {% if f.send_email %}checked{% endif %}> <span>Courriel</span></label>
+    <label class="check"><input type="checkbox" name="send_sms" value="true" {% if f.send_sms %}checked{% endif %}> <span>SMS <span class="muted">(seulement celles qui ont aussi choisi les SMS)</span></span></label>
+  </fieldset>
+  <label>Sujet du courriel <input type="text" name="subject" maxlength="150" value="{{ f.subject or '' }}" placeholder="-15 % sur les tresses ce mois-ci"></label>
+  <label>Message du courriel <span class="muted">« Bonjour Prénom » est ajouté au début, le lien de désabonnement et l'adresse du salon à la fin</span>
+    <textarea name="body" rows="9" maxlength="3000" required>{{ f.body or '' }}</textarea></label>
+  <label>Texte du SMS <span class="muted">court, 200 caractères maximum ; le lien de désabonnement est ajouté</span>
+    <input type="text" name="sms_text" maxlength="200" value="{{ f.sms_text or '' }}" placeholder="-15 % sur les tresses jusqu'au 30 novembre. Réservez sur kyjabeaute.ca"></label>
+  <button type="submit" class="btn-gold">Continuer : voir le résumé</button>
+</form>
+{% endblock %}

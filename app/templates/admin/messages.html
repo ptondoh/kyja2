@@ -19,7 +19,7 @@
 <tr class="filter-row"><th></th><th>{{ box('filters', 'canal', f.canal, 'Canal…', 'Filtrer par canal', ['Courriel', 'SMS']) }}</th><th></th><th></th><th>{{ box('filters', 'statut', f.statut, 'Statut…', 'Filtrer par statut', ['Aperçu', 'Envoyé', 'Échec', 'En file']) }}</th><th></th></tr></thead><tbody>
 {% for m in rows %}<tr>
   <td>{{ m.created_at | fr_date }}<br><span class="muted">{{ m.created_at | fr_time }}</span></td>
-  <td>{{ 'Courriel' if m.channel == 'email' else 'SMS' }}</td>
+  <td>{{ 'Courriel' if m.channel == 'email' else 'SMS' }}{% if m.campaign_id %}<br><span class="status status-confirmed">promotion</span>{% endif %}</td>
   <td>{{ m.to_address }}</td>
   <td>{% if m.subject %}<strong class="font-medium">{{ m.subject }}</strong><br>{% endif %}<span class="muted whitespace-pre-line">{{ m.body }}</span></td>
   <td><span class="status status-{{ {'sent': 'completed', 'preview': 'confirmed', 'failed': 'cancelled', 'queued': 'pending_quote'}[m.status] }}">{{ {'sent': 'Envoyé', 'preview': 'Aperçu', 'failed': 'Échec', 'queued': 'En file'}[m.status] }}</span>

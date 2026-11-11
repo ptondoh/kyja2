@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_pager.html" import pager %}
+{% from "_filters.html" import filter_form, box %}
+{% block title %}Promotions — Admin{% endblock %}
+{% block content %}
+<a href="/admin" class="link-gold text-sm">← Administration</a>
+<div class="mb-6 mt-4 flex flex-wrap items-center justify-between gap-4">
+  <h1>Promotions</h1>
+  <a href="/admin/marketing/new" class="btn-gold btn-sm">+ Nouvelle promotion</a>
+</div>
+<p class="muted mb-4">Messages promotionnels envoyés <strong class="font-medium text-ink">uniquement</strong> aux clientes qui ont accepté d'en recevoir ({{ audience.consenting }} personne{{ 's' if audience.consenting != 1 }} aujourd'hui). Chaque message contient un lien pour se désabonner.</p>
+{{ filter_form('filters', '/admin/marketing', statut) }}
+<div class="panel overflow-x-auto !p-2">
+<table class="admin-table"><thead><tr><th>Date</th><th>Sujet</th><th>Canaux</th><th>Personnes</th><th>Statut</th></tr>
+<tr class="filter-row"><th></th><th></th><th></th><th></th><th>{{ box('filters', 'statut', statut, 'Statut…', 'Filtrer par statut', status_labels) }}</th></tr></thead><tbody>
+{% for c in items %}<tr>
+  <td>{{ c.created_at | fr_date }}<br><span class="muted">{{ c.created_at | fr_time }}</span></td>
+  <td><a class="link-gold" href="/admin/marketing/{{ c.id }}">{{ c.subject }}</a></td>
+  <td>{{ 'Courriel' if c.send_email }}{{ ' + ' if c.send_email and c.send_sms }}{{ 'SMS' if c.send_sms }}</td>
+  <td>{{ c.recipient_count if c.status != 'draft' else '—' }}</td>
+  <td><span class="status status-{{ 'confirmed' if c.status == 'draft' else 'completed' }}">{{ {'draft': 'Brouillon', 'sending': 'En cours', 'sent': 'Envoyée'}[c.status] }}</span></td>
+</tr>{% else %}<tr><td colspan="5" class="muted">Aucune promotion.</td></tr>{% endfor %}
+</tbody></table>
+{{ pager(pg, request) }}
+</div>
+{% endblock %}

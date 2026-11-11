@@ -127,6 +127,7 @@ class Category(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)  # désactivée : n'apparaît plus comme filtre sur le site
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     services: Mapped[list["Service"]] = relationship(back_populates="category")
@@ -420,5 +421,24 @@ class MessageOutbox(Base):
     error: Mapped[str | None] = mapped_column(String(500))
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     appointment_id: Mapped[int | None] = mapped_column(ForeignKey("appointments.id", ondelete="SET NULL"))
+    campaign_id: Mapped[int | None] = mapped_column(ForeignKey("marketing_campaigns.id", ondelete="SET NULL"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class MarketingCampaign(Base):
+    """Message promotionnel envoyé par l'admin, uniquement aux clientes qui ont accepté de recevoir des promotions."""
+
+    __tablename__ = "marketing_campaigns"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    subject: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text)
+    sms_text: Mapped[str | None] = mapped_column(String(320))  # texte court du SMS (le courriel utilise `body`)
+    send_email: Mapped[bool] = mapped_column(Boolean, default=True)
+    send_sms: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String(12), default="draft", index=True)  # draft -> sent
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    recipient_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

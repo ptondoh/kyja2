@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth.deps import require_role
 from app.config import get_settings
 from app.db.base import get_db
-from app.filters import matching
+from app.filters import apply_status, matching, safe_next, status_choices
 from app.pagination import like, paginate
 from app.db.models.core import Category, Media, PricingMode, Product, Role, Service, ServiceResource, User
 from app.db.models.settings import get_int_setting, get_setting, set_setting
@@ -99,6 +99,7 @@ def settings_page(
         booking_horizon_days=get_int_setting(db, "booking_horizon_days"),
         booking_min_notice_min=get_int_setting(db, "booking_min_notice_min"),
         salon_phone_value=get_setting(db, "salon_phone"),
+        salon_address_value=get_setting(db, "salon_address"),
     )
 
 
@@ -111,6 +112,7 @@ def settings_save(
     booking_horizon_days: str = Form("60"),
     booking_min_notice_min: str = Form("60"),
     salon_phone: str = Form(""),
+    salon_address: str = Form(""),
     db: Session = Depends(get_db),
     user: User = Depends(require_role(Role.admin)),
 ):
@@ -125,6 +127,9 @@ def settings_save(
     phone = salon_phone.strip()
     if not re.fullmatch(r"[0-9 ()+.\-]{0,30}", phone):
         errors.append("Téléphone invalide (chiffres, espaces, + ( ) - . seulement, 30 caractères max).")
+    address = " ".join(salon_address.split())
+    if len(address) > 300:
+        errors.append("Adresse du salon : 300 caractères maximum.")
     if errors:
         return render(
             request,
@@ -138,6 +143,7 @@ def settings_save(
             booking_horizon_days=booking_horizon_days,
             booking_min_notice_min=booking_min_notice_min,
             salon_phone_value=salon_phone,
+            salon_address_value=salon_address,
         )
     set_setting(db, "video_max_mb", str(mb))
     set_setting(db, "video_max_seconds", str(sec))
@@ -145,6 +151,7 @@ def settings_save(
     set_setting(db, "booking_horizon_days", str(horizon))
     set_setting(db, "booking_min_notice_min", str(notice))
     set_setting(db, "salon_phone", phone)
+    set_setting(db, "salon_address", address)
     reset_salon_cache()
     return _redirect("/admin/settings?saved=1")
 
@@ -166,11 +173,25 @@ def services_list(
     categories = db.scalars(select(Category).order_by(Category.name)).all()
     if cat.strip():
         q = q.where(Service.category_id.in_(select(Category.id).where(Category.name.ilike(like(cat.strip()), escape="\\"))))
+    statut = (request.query_params.get("statut") or "").strip()
+    if not archived:
+        q = apply_status(q, Service.is_active, statut, feminine=True)
     pg = paginate(db, q, request.query_params.get("page"))
     return render(
         request, "admin/services.html", current_user=user, items=pg.items, pg=pg, q=text, cat=cat,
-        categories=categories, show_archived=archived,
+        categories=categories, show_archived=archived, statut=statut, status_labels=list(status_choices(True).values()),
     )  # fmt: skip
+
+
+@router.post("/services/{service_id}/toggle")
+def service_toggle(service_id: int, next: str = Form(""), db: Session = Depends(get_db)):
+    """Active ou désactive une prestation d'un clic (désactivée : plus visible ni réservable sur le site)."""
+    item = db.get(Service, service_id)
+    if not item or item.archived_at or item.is_custom_request:
+        raise HTTPException(status_code=404)
+    item.is_active = not item.is_active
+    db.commit()
+    return _redirect(safe_next(next, "/admin/services"))
 
 
 @router.get("/services/new")
@@ -297,11 +318,23 @@ def products_list(
     if by_stock is not None:
         conditions = {"bas": Product.stock <= 5, "epuise": Product.stock <= 0, "ok": Product.stock > 5}
         query = query.where(or_(*[conditions[k] for k in by_stock])) if by_stock else query.where(false())
+    statut = (request.query_params.get("statut") or "").strip()
+    query = apply_status(query, Product.is_active, statut)
     pg = paginate(db, query, request.query_params.get("page"))
     return render(
         request, "admin/products.html", current_user=user, items=pg.items, pg=pg, q=text, stock=stock,
-        stock_choices=list(STOCK_CHOICES.values()),
+        stock_choices=list(STOCK_CHOICES.values()), statut=statut, status_labels=list(status_choices().values()),
     )  # fmt: skip
+
+
+@router.post("/products/{product_id}/toggle")
+def product_toggle(product_id: int, next: str = Form(""), db: Session = Depends(get_db)):
+    item = db.get(Product, product_id)
+    if not item:
+        raise HTTPException(status_code=404)
+    item.is_active = not item.is_active
+    db.commit()
+    return _redirect(safe_next(next, "/admin/products"))
 
 
 @router.get("/products/new")

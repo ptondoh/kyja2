@@ -11,6 +11,9 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.admin.booking_admin import router as admin_booking_router
 from app.admin.catalog_admin import router as admin_catalog_router
+from app.admin.users_admin import router as admin_users_router
+from app.marketing.router import public as unsubscribe_router
+from app.marketing.router import router as admin_marketing_router
 from app.admin.router import router as admin_router
 from app.auth.deps import get_current_user_optional
 from app.auth.router import router as auth_router
@@ -68,6 +71,9 @@ app.include_router(products_router)
 app.include_router(admin_router)
 app.include_router(admin_booking_router)
 app.include_router(admin_catalog_router)
+app.include_router(admin_users_router)
+app.include_router(admin_marketing_router)
+app.include_router(unsubscribe_router)
 
 
 @app.get("/")
